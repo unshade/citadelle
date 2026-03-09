@@ -19,7 +19,7 @@ func Login(email, password string) (*models.User, []byte, error) {
 		return nil, nil, err
 	}
 
-	masterKey, err := DecryptMasterKey(user.EncryptedMasterKey, kek)
+	masterKey, err := DecryptKey(user.EncryptedMasterKey, kek)
 	if err != nil {
 		return nil, nil, errors.New("identifiants incorrects")
 	}
@@ -41,7 +41,7 @@ func CreateUser(email, password string) (*models.User, error) {
 		return nil, err
 	}
 
-	encryptedMasterKey, _, err := EncryptMasterKey(masterKey, kek)
+	encryptedMasterKey, _, err := EncryptKey(masterKey, kek)
 	if err != nil {
 		return nil, err
 	}
