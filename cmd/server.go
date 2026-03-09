@@ -18,7 +18,7 @@ var serverCmd = &cobra.Command{
 	Short: "Start the HTTP server",
 	Long: `Start the citadelle HTTP server with REST API endpoints.
 	
-This command initializes the database and starts the Fuego web framework server.`,
+This command initializes the SQLite database and starts the Fuego web framework server.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		dbPath, _ := cmd.Flags().GetString("db")
 		port, _ := cmd.Flags().GetString("port")
@@ -27,12 +27,19 @@ This command initializes the database and starts the Fuego web framework server.
 			log.Fatalf("Failed to initialize database: %v", err)
 		}
 
+		// Create Fuego server
 		s := fuego.NewServer(
 			fuego.WithAddr("localhost:" + port),
 		)
 
-		fuego.Post(s, "/api/users", controllers.CreateUser)
-		fuego.Post(s, "/api/users/login", controllers.Login)
+		// Create /api group
+		apiGroup := fuego.Group(s, "/api")
+
+		// Initialize and register controllers under /api
+		userCtrl := controllers.NewUserController()
+		userCtrl.Register(apiGroup)
+
+		log.Printf("Starting server on http://localhost:%s", port)
 
 		if err := s.Run(); err != nil {
 			log.Fatalf("Server error: %v", err)
