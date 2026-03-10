@@ -39,6 +39,9 @@ This command initializes the SQLite database and starts the Fuego web framework 
 		userCtrl := controllers.NewUserController()
 		userCtrl.Register(apiGroup)
 
+		fileCtrl := controllers.NewFileController()
+		fileCtrl.Register(apiGroup)
+
 		log.Printf("Starting server on http://localhost:%s", port)
 
 		if err := s.Run(); err != nil {
