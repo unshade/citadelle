@@ -9,7 +9,6 @@ import (
 	"github.com/go-fuego/fuego"
 	"github.com/spf13/cobra"
 	"github.com/unshade/citadelle/internal/controllers"
-	"github.com/unshade/citadelle/internal/db"
 )
 
 // serverCmd represents the server subcommand
@@ -20,12 +19,12 @@ var serverCmd = &cobra.Command{
 	
 This command initializes the SQLite database and starts the Fuego web framework server.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		dbPath, _ := cmd.Flags().GetString("db")
+		// dbPath, _ := cmd.Flags().GetString("db")
 		port, _ := cmd.Flags().GetString("port")
 
-		if err := db.InitDB(dbPath); err != nil {
-			log.Fatalf("Failed to initialize database: %v", err)
-		}
+		// if err := db.InitDB(dbPath); err != nil {
+		// 	log.Fatalf("Failed to initialize database: %v", err)
+		// }
 
 		// Create Fuego server
 		s := fuego.NewServer(
@@ -36,8 +35,8 @@ This command initializes the SQLite database and starts the Fuego web framework 
 		apiGroup := fuego.Group(s, "/api")
 
 		// Initialize and register controllers under /api
-		userCtrl := controllers.NewUserController()
-		userCtrl.Register(apiGroup)
+		// userCtrl := controllers.NewUserController()
+		// userCtrl.Register(apiGroup)
 
 		fileCtrl := controllers.NewFileController()
 		fileCtrl.Register(apiGroup)

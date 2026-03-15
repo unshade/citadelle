@@ -2,20 +2,21 @@ package controllers
 
 import (
 	"encoding/base64"
-	"io/fs"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/go-fuego/fuego"
 	"github.com/go-fuego/fuego/option"
 	"github.com/google/uuid"
 	"github.com/unshade/citadelle/internal/models"
+	"github.com/unshade/citadelle/internal/repositories"
 )
 
 const dataRoot = "./data"
 
-type FileController struct{}
+type FileController struct {
+	Database repositories.Database
+}
 
 func NewFileController() *FileController {
 	return &FileController{}
@@ -25,62 +26,36 @@ func (fc *FileController) Register(group *fuego.Server) {
 	filesGroup := fuego.Group(group, "/files", option.Tags("files"))
 
 	fuego.Post(filesGroup, "/", fc.CreateFile)
+	fuego.Post(filesGroup, "/{id}", fc.SaveFile)
 	// fuego.Get(filesGroup, "/{path...}", fc.IndexFiles)
 	// fuego.Delete(filesGroup, "/{path...}", fc.DeleteFile)
 	// fuego.Put(filesGroup, "/{path...}", fc.UpdateFile)
 }
 
-type PathRequest struct {
-	Path string `json:"path" validate:"required"`
-}
-
-type FileInfoResponse struct {
-	Path    string      `json:"path"`
-	Name    string      `json:"name"`
-	Size    int64       `json:"size"`
-	Mode    fs.FileMode `json:"mode"`
-	ModTime time.Time   `json:"mod_time"`
-	IsDir   bool        `json:"is_dir"`
-}
-
-func fileInfoToResponse(path string, info fs.FileInfo) FileInfoResponse {
-	return FileInfoResponse{
-		Path:    path,
-		Name:    info.Name(),
-		Size:    info.Size(),
-		Mode:    info.Mode(),
-		ModTime: info.ModTime(),
-		IsDir:   info.IsDir(),
-	}
-}
 
 type CreateFileRequest struct {
 	Id                        uuid.UUID `json:"uuid"`
-	EncryptedFile             []byte    `json:"encryptedFile"`
 	EncryptedB64EncryptionKey string    `json:"encryptedB64EncryptionKey"`
 	B64EncryptionNonce        string    `json:"B64EncryptionNonce"`
 	Version                   uint64    `json:"version"`
 }
 
-func (fc *FileController) CreateFile(c fuego.ContextWithBody[CreateFileRequest]) (FileInfoResponse, error) {
+type CreateFileResponse struct{}
+
+func (fc *FileController) CreateFile(c fuego.ContextWithBody[CreateFileRequest]) (*ApiResponse[CreateFileResponse], error) {
 	body, err := c.Body()
 	if err != nil {
-		return FileInfoResponse{}, err
-	}
-
-	storagePath := filepath.Join(dataRoot, string(body.Id[:]))
-	if err := os.Mkdir(storagePath, 0600); err != nil {
-		return FileInfoResponse{}, err
+		return NewErrorResponse[CreateFileResponse](err)
 	}
 
 	encryptedKey, err := base64.StdEncoding.DecodeString(body.EncryptedB64EncryptionKey)
 	if err != nil {
-		return FileInfoResponse{}, err
+		return NewErrorResponse[CreateFileResponse](err)
 	}
 
 	nonce, err := base64.StdEncoding.DecodeString(body.B64EncryptionNonce)
 	if err != nil {
-		return FileInfoResponse{}, err
+		return NewErrorResponse[CreateFileResponse](err)
 	}
 
 	serverNode := models.ServerNode{
@@ -90,9 +65,38 @@ func (fc *FileController) CreateFile(c fuego.ContextWithBody[CreateFileRequest])
 		Version:      body.Version,
 	}
 
+	fc.Database.ServerNodes.Create(serverNode)
+
+	return NewApiResponse(&CreateFileResponse{}, "file node created")
+}
+
+type SaveFileResponse struct{}
+
+func (fc *FileController) SaveFile(c fuego.ContextNoBody) (*ApiResponse[SaveFileResponse], error) {
+	id := c.PathParam("id")
+
+	storagePath := filepath.Join(dataRoot, id)
 	filePath := filepath.Join(storagePath, "content")
 
-	os.WriteFile(filePath, body.EncryptedFile, 0600)
+	if err := os.MkdirAll(storagePath, 0777); err != nil {
+		return NewErrorResponse[SaveFileResponse](err)
+	}
 
-	return FileInfoResponse{}, nil
+	encryptedFile, header, err := c.Request().FormFile("encryptedFile")
+	if err != nil {
+		return NewErrorResponse[SaveFileResponse](err)
+	}
+
+	rawEncryptedFile := make([]byte, header.Size)
+	_, err = encryptedFile.Read(rawEncryptedFile)
+	if err != nil {
+		return NewErrorResponse[SaveFileResponse](err)
+	}
+
+	err = os.WriteFile(filePath, rawEncryptedFile, 0777)
+	if err != nil {
+		return NewErrorResponse[SaveFileResponse](err)
+	}
+
+	return NewApiResponse(&SaveFileResponse{}, "file saved")
 }

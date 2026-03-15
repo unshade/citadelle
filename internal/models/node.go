@@ -10,6 +10,7 @@ type ServerNode struct {
 	Id                  uuid.UUID
 	Version             uint64
 	EncryptedClientPath string
+	EncryptedName       string
 
 	EncryptedKey []byte
 	Nonce        []byte
