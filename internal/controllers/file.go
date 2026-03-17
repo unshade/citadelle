@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/base64"
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -25,26 +26,27 @@ func NewFileController(database repositories.Database) *FileController {
 func (fc *FileController) Register(group *fuego.Server) {
 	filesGroup := fuego.Group(group, "/files", option.Tags("files"))
 
-	fuego.Post(filesGroup, "/", fc.CreateFile)
-	fuego.Post(filesGroup, "/{id}", fc.SaveFile)
-	fuego.Get(filesGroup, "/index/{b64Sha256Path}", fc.IndexFiles)
-	// fuego.Delete(filesGroup, "/{path...}", fc.DeleteFile)
-	// fuego.Put(filesGroup, "/{path...}", fc.UpdateFile)
+	fuego.Post(filesGroup, "/", fc.CreateNode)
+	fuego.Post(filesGroup, "/{uuid}", fc.SaveFile)
+	fuego.Get(filesGroup, "/{uuid}", fc.IndexDirectory)
+	//fuego.Delete(filesGroup, "/{uuid}", fc.DeleteFile)
 }
 
 type CreateFileRequest struct {
-	B64EncryptedEncryptionKey string `json:"b64EncryptedEncryptionKey"`
-	B64EncryptionNonce        string `json:"b64EncryptionNonce"`
-	B64EncryptedName          string `json:"b64EncryptedName"`
-	B64Sha256Path             string `json:"b64Sha256Path"`
-	Version                   uint64 `json:"version"`
+	B64EncryptedEncryptionKey string  `json:"b64EncryptedEncryptionKey"`
+	B64EncryptionNonce        string  `json:"b64EncryptionNonce"`
+	B64EncryptedName          string  `json:"b64EncryptedName"`
+	B64EncryptedPath          string  `json:"b64EncryptedPath"`
+	IsDirectory               bool    `json:"isDirectory"`
+	ParentUuid                *string `json:"parentUuid"`
+	Version                   uint64  `json:"version"`
 }
 
 type CreateFileResponse struct {
 	Uuid string `json:"uuid"`
 }
 
-func (fc *FileController) CreateFile(c fuego.ContextWithBody[CreateFileRequest]) (*ApiResponse[CreateFileResponse], error) {
+func (fc *FileController) CreateNode(c fuego.ContextWithBody[CreateFileRequest]) (*ApiResponse[CreateFileResponse], error) {
 	body, err := c.Body()
 	if err != nil {
 		return NewErrorResponse[CreateFileResponse](err)
@@ -65,13 +67,20 @@ func (fc *FileController) CreateFile(c fuego.ContextWithBody[CreateFileRequest])
 		return NewErrorResponse[CreateFileResponse](err)
 	}
 
+	parsedParentUuid, err := uuid.Parse(*body.ParentUuid)
+	if err != nil {
+		return NewErrorResponse[CreateFileResponse](err)
+	}
+
 	serverNode := models.ServerNode{
-		Id:            uuid.New(),
-		EncryptedKey:  encryptedKey,
-		Nonce:         nonce,
-		Version:       body.Version,
-		EncryptedName: encryptedName,
-		B64Sha256Path: body.B64Sha256Path,
+		Id:               uuid.New(),
+		EncryptedKey:     encryptedKey,
+		Nonce:            nonce,
+		Version:          body.Version,
+		EncryptedName:    encryptedName,
+		B64EncryptedPath: body.B64EncryptedPath,
+		IsDirectory:      body.IsDirectory,
+		ParentId:         parsedParentUuid,
 	}
 
 	if err := fc.Database.ServerNodes.Create(c.Context(), serverNode); err != nil {
@@ -86,9 +95,9 @@ func (fc *FileController) CreateFile(c fuego.ContextWithBody[CreateFileRequest])
 type SaveFileResponse struct{}
 
 func (fc *FileController) SaveFile(c fuego.ContextNoBody) (*ApiResponse[SaveFileResponse], error) {
-	id := c.PathParam("id")
+	uuid := c.PathParam("uuid")
 
-	storagePath := filepath.Join(dataRoot, id)
+	storagePath := filepath.Join(dataRoot, uuid)
 	filePath := filepath.Join(storagePath, "content")
 
 	if err := os.MkdirAll(storagePath, 0777); err != nil {
@@ -114,30 +123,28 @@ func (fc *FileController) SaveFile(c fuego.ContextNoBody) (*ApiResponse[SaveFile
 	return NewApiResponse(&SaveFileResponse{}, "file saved")
 }
 
-type FileNode struct {
-	Id               string `json:"id"`
-	B64EncryptedName string `json:"b64EncryptedName"`
-}
-
 type IndexFilesResponse struct {
-	Files []FileNode `json:"files"`
+	Nodes []*models.ServerNode `json:"nodes"`
 }
 
-func (fc *FileController) IndexFiles(c fuego.ContextWithBody[fuego.ContextNoBody]) (*ApiResponse[IndexFilesResponse], error) {
-	b64Sha256Path := c.PathParam("b64Sha256Path")
-
-	nodes, err := fc.Database.ServerNodes.FindBySha256Path(c.Context(), b64Sha256Path)
+func (fc *FileController) IndexDirectory(c fuego.ContextNoBody) (*ApiResponse[IndexFilesResponse], error) {
+	uuid, err := uuid.Parse(c.PathParam("uuid"))
 	if err != nil {
 		return NewErrorResponse[IndexFilesResponse](err)
 	}
 
-	files := make([]FileNode, len(nodes))
-	for i, node := range nodes {
-		files[i] = FileNode{
-			Id:               node.Id.String(),
-			B64EncryptedName: base64.StdEncoding.EncodeToString(node.EncryptedName),
-		}
+	nodes, err := fc.Database.ServerNodes.GetChildrens(c.Context(), uuid)
+	if err != nil {
+		return NewErrorResponse[IndexFilesResponse](err)
 	}
 
-	return NewApiResponse(&IndexFilesResponse{Files: files}, "files retrieved")
+	if len(nodes) == 0 {
+		return NewErrorResponse[IndexFilesResponse](errors.New("node is a file"))
+	}
+
+	return NewApiResponse(&IndexFilesResponse{Nodes: nodes}, "files retrieved")
 }
+
+type DeleteFileResponse struct{}
+
+//func (fc *FileController) DeleteFile(c fuego.ContextNoBody) (*ApiResponse[DeleteFileResponse], error)
