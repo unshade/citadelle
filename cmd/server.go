@@ -47,7 +47,7 @@ This command initializes the SQLite database and starts the Fuego web framework 
 		apiGroup := fuego.Group(s, "/api")
 
 		// Initialize and register controllers under /api
-		fileCtrl := controllers.NewFileController(*database)
+		fileCtrl := controllers.NewNodeController(*database)
 		fileCtrl.Register(apiGroup)
 
 		log.Printf("Starting server on http://localhost:%s", port)

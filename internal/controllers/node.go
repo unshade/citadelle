@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"encoding/base64"
-	"errors"
 	"os"
 	"path/filepath"
 
@@ -15,19 +14,19 @@ import (
 
 const dataRoot = "./data"
 
-type FileController struct {
+type NodeController struct {
 	Database repositories.Database
 }
 
-func NewFileController(database repositories.Database) *FileController {
-	return &FileController{Database: database}
+func NewNodeController(database repositories.Database) *NodeController {
+	return &NodeController{Database: database}
 }
 
-func (fc *FileController) Register(group *fuego.Server) {
-	filesGroup := fuego.Group(group, "/files", option.Tags("files"))
+func (fc *NodeController) Register(group *fuego.Server) {
+	filesGroup := fuego.Group(group, "/nodes", option.Tags("nodes"))
 
 	fuego.Post(filesGroup, "/", fc.CreateNode)
-	fuego.Post(filesGroup, "/{uuid}", fc.SaveFile)
+	fuego.Post(filesGroup, "/{uuid}", fc.SaveNode)
 	fuego.Get(filesGroup, "/{uuid}", fc.IndexDirectory)
 	//fuego.Delete(filesGroup, "/{uuid}", fc.DeleteFile)
 }
@@ -42,34 +41,34 @@ type CreateFileRequest struct {
 	Version                   uint64  `json:"version"`
 }
 
-type CreateFileResponse struct {
+type CreateNodeResponse struct {
 	Uuid string `json:"uuid"`
 }
 
-func (fc *FileController) CreateNode(c fuego.ContextWithBody[CreateFileRequest]) (*ApiResponse[CreateFileResponse], error) {
+func (fc *NodeController) CreateNode(c fuego.ContextWithBody[CreateFileRequest]) (*ApiResponse[CreateNodeResponse], error) {
 	body, err := c.Body()
 	if err != nil {
-		return NewErrorResponse[CreateFileResponse](err)
+		return NewErrorResponse[CreateNodeResponse](err)
 	}
 
 	encryptedKey, err := base64.StdEncoding.DecodeString(body.B64EncryptedEncryptionKey)
 	if err != nil {
-		return NewErrorResponse[CreateFileResponse](err)
+		return NewErrorResponse[CreateNodeResponse](err)
 	}
 
 	nonce, err := base64.StdEncoding.DecodeString(body.B64EncryptionNonce)
 	if err != nil {
-		return NewErrorResponse[CreateFileResponse](err)
+		return NewErrorResponse[CreateNodeResponse](err)
 	}
 
 	encryptedName, err := base64.StdEncoding.DecodeString(body.B64EncryptedName)
 	if err != nil {
-		return NewErrorResponse[CreateFileResponse](err)
+		return NewErrorResponse[CreateNodeResponse](err)
 	}
 
 	parsedParentUuid, err := uuid.Parse(*body.ParentUuid)
 	if err != nil {
-		return NewErrorResponse[CreateFileResponse](err)
+		return NewErrorResponse[CreateNodeResponse](err)
 	}
 
 	serverNode := models.ServerNode{
@@ -84,17 +83,17 @@ func (fc *FileController) CreateNode(c fuego.ContextWithBody[CreateFileRequest])
 	}
 
 	if err := fc.Database.ServerNodes.Create(c.Context(), serverNode); err != nil {
-		return NewErrorResponse[CreateFileResponse](err)
+		return NewErrorResponse[CreateNodeResponse](err)
 	}
 
-	return NewApiResponse(&CreateFileResponse{
+	return NewApiResponse(&CreateNodeResponse{
 		Uuid: serverNode.Id.String(),
 	}, "file node created")
 }
 
 type SaveFileResponse struct{}
 
-func (fc *FileController) SaveFile(c fuego.ContextNoBody) (*ApiResponse[SaveFileResponse], error) {
+func (fc *NodeController) SaveNode(c fuego.ContextNoBody) (*ApiResponse[SaveFileResponse], error) {
 	uuid := c.PathParam("uuid")
 
 	storagePath := filepath.Join(dataRoot, uuid)
@@ -127,7 +126,7 @@ type IndexFilesResponse struct {
 	Nodes []*models.ServerNode `json:"nodes"`
 }
 
-func (fc *FileController) IndexDirectory(c fuego.ContextNoBody) (*ApiResponse[IndexFilesResponse], error) {
+func (fc *NodeController) IndexDirectory(c fuego.ContextNoBody) (*ApiResponse[IndexFilesResponse], error) {
 	uuid, err := uuid.Parse(c.PathParam("uuid"))
 	if err != nil {
 		return NewErrorResponse[IndexFilesResponse](err)
@@ -136,10 +135,6 @@ func (fc *FileController) IndexDirectory(c fuego.ContextNoBody) (*ApiResponse[In
 	nodes, err := fc.Database.ServerNodes.GetChildrens(c.Context(), uuid)
 	if err != nil {
 		return NewErrorResponse[IndexFilesResponse](err)
-	}
-
-	if len(nodes) == 0 {
-		return NewErrorResponse[IndexFilesResponse](errors.New("node is a file"))
 	}
 
 	return NewApiResponse(&IndexFilesResponse{Nodes: nodes}, "files retrieved")
