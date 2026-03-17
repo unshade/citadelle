@@ -28,7 +28,7 @@ func (fc *NodeController) Register(group *fuego.Server) {
 	fuego.Post(filesGroup, "/", fc.CreateNode)
 	fuego.Post(filesGroup, "/{uuid}", fc.SaveNode)
 	fuego.Get(filesGroup, "/{uuid}", fc.IndexDirectory)
-	//fuego.Delete(filesGroup, "/{uuid}", fc.DeleteFile)
+	fuego.Delete(filesGroup, "/{uuid}", fc.DeleteNode)
 }
 
 type CreateFileRequest struct {
@@ -140,6 +140,25 @@ func (fc *NodeController) IndexDirectory(c fuego.ContextNoBody) (*ApiResponse[In
 	return NewApiResponse(&IndexFilesResponse{Nodes: nodes}, "files retrieved")
 }
 
-type DeleteFileResponse struct{}
+type DeleteNodeResponse struct{}
 
-//func (fc *FileController) DeleteFile(c fuego.ContextNoBody) (*ApiResponse[DeleteFileResponse], error)
+func (fc *NodeController) DeleteNode(c fuego.ContextNoBody) (*ApiResponse[DeleteNodeResponse], error) {
+	nodeUuid, err := uuid.Parse(c.PathParam("uuid"))
+	if err != nil {
+		return NewErrorResponse[DeleteNodeResponse](err)
+	}
+
+	uuids, err := fc.Database.ServerNodes.DeleteRecursive(c.Context(), nodeUuid)
+	if err != nil {
+		return NewErrorResponse[DeleteNodeResponse](err)
+	}
+
+	for _, id := range uuids {
+		storagePath := filepath.Join(dataRoot, id.String())
+		if err := os.RemoveAll(storagePath); err != nil {
+			return NewErrorResponse[DeleteNodeResponse](err)
+		}
+	}
+
+	return NewApiResponse(&DeleteNodeResponse{}, "node deleted")
+}
