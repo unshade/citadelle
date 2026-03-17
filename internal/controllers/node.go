@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/base64"
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -27,6 +28,7 @@ func (fc *NodeController) Register(group *fuego.Server) {
 
 	fuego.Post(filesGroup, "/", fc.CreateNode)
 	fuego.Post(filesGroup, "/{uuid}", fc.SaveNode)
+	fuego.Get(filesGroup, "/{uuid}/download", fc.DownloadNode)
 	fuego.Get(filesGroup, "/{uuid}", fc.IndexDirectory)
 	fuego.Delete(filesGroup, "/{uuid}", fc.DeleteNode)
 }
@@ -161,4 +163,42 @@ func (fc *NodeController) DeleteNode(c fuego.ContextNoBody) (*ApiResponse[Delete
 	}
 
 	return NewApiResponse(&DeleteNodeResponse{}, "node deleted")
+}
+
+func (fc *NodeController) DownloadNode(c fuego.ContextNoBody) (any, error) {
+	nodeUuid, err := uuid.Parse(c.PathParam("uuid"))
+	if err != nil {
+		return nil, err
+	}
+
+	node, err := fc.Database.ServerNodes.GetByID(c.Context(), nodeUuid)
+	if err != nil {
+		return nil, err
+	}
+
+	if node.IsDirectory {
+		return nil, errors.New("cannot download a directory")
+	}
+
+	storagePath := filepath.Join(dataRoot, nodeUuid.String())
+	filePath := filepath.Join(storagePath, "content")
+
+	fileData, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	w := c.Response()
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment")
+	w.Header().Set("X-Encrypted-Key", base64.StdEncoding.EncodeToString(node.EncryptedKey))
+	w.Header().Set("X-Encryption-Nonce", base64.StdEncoding.EncodeToString(node.Nonce))
+	w.Header().Set("X-Encrypted-Name", base64.StdEncoding.EncodeToString(node.EncryptedName))
+
+	_, err = w.Write(fileData)
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
 }

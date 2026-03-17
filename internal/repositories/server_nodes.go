@@ -11,6 +11,7 @@ import (
 
 type ServerNodesRepo interface {
 	Create(ctx context.Context, node models.ServerNode) error
+	GetByID(ctx context.Context, uuid uuid.UUID) (*models.ServerNode, error)
 	Delete(ctx context.Context, uuid uuid.UUID) error
 	DeleteRecursive(ctx context.Context, uuid uuid.UUID) ([]uuid.UUID, error)
 	GetChildrens(ctx context.Context, uuid uuid.UUID) ([]*models.ServerNode, error)
@@ -27,6 +28,10 @@ func NewServerNodesRepo(db *gorm.DB) ServerNodesRepo {
 
 func (r *ServerNodes) Create(ctx context.Context, node models.ServerNode) error {
 	return gorm.G[models.ServerNode](r.db).Create(ctx, &node)
+}
+
+func (r *ServerNodes) GetByID(ctx context.Context, uuid uuid.UUID) (*models.ServerNode, error) {
+	return gorm.G[*models.ServerNode](r.db).Where("id = ?", uuid).First(ctx)
 }
 
 func (r *ServerNodes) Delete(ctx context.Context, uuid uuid.UUID) error {
