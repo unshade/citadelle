@@ -1,10 +1,15 @@
 package models
 
-import "gorm.io/gorm"
+import (
+	"github.com/google/uuid"
+)
 
 type User struct {
-	gorm.Model
-	Email              string `gorm:"uniqueIndex;not null"`
+	Id                 uuid.UUID
 	Salt               []byte `gorm:"not null"`
 	EncryptedMasterKey []byte `gorm:"not null"`
+
+	// TODO : find a way to authenticate without storing a challenge in clear
+	EncryptedChallenge []byte
+	ClearChallenge     string
 }
