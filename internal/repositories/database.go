@@ -10,5 +10,6 @@ type Database struct {
 func NewDatabase(db *gorm.DB) *Database {
 	return &Database{
 		ServerNodes: NewServerNodesRepo(db),
+		Users:       NewUsersRepo(db),
 	}
 }

@@ -14,8 +14,8 @@ type UserController struct {
 	Database repositories.Database
 }
 
-func NewUserController(database repositories.Database) *NodeController {
-	return &NodeController{Database: database}
+func NewUserController(database repositories.Database) *UserController {
+	return &UserController{Database: database}
 }
 
 func (uc *UserController) Register(group *fuego.Server) {
@@ -25,14 +25,14 @@ func (uc *UserController) Register(group *fuego.Server) {
 	fuego.Get(usersGroup, "/{uuid}", uc.GetUser)
 }
 
-func (uc *UserController) GetUser(c fuego.ContextWithBody[CreateUserRequest]) (*ApiResponse[models.User], error) {
+func (uc *UserController) GetUser(c fuego.ContextNoBody) (*ApiResponse[models.User], error) {
 	id, err := uuid.Parse(c.PathParam("uuid"))
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 	user, err := uc.Database.Users.GetById(c.Context(), id)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 
 	return NewApiResponse(user, "ok")
@@ -77,6 +77,10 @@ func (uc *UserController) CreateUser(c fuego.ContextWithBody[CreateUserRequest])
 		EncryptedMasterKey: encryptedMasterKey,
 		EncryptedChallenge: encryptedChallenge,
 		ClearChallenge:     body.ClearChallenge,
+	}
+
+	if err := uc.Database.Users.Create(c.Context(), user); err != nil {
+		return NewErrorResponse[CreateUserResponse](err)
 	}
 
 	return NewApiResponse(&CreateUserResponse{

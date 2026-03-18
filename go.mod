@@ -7,6 +7,7 @@ tool github.com/spf13/cobra-cli
 require golang.org/x/crypto v0.48.0
 
 require (
+	github.com/caarlos0/env/v11 v11.4.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.11 // indirect
 	github.com/getkin/kin-openapi v0.133.0 // indirect
 	github.com/go-openapi/jsonpointer v0.22.3 // indirect
