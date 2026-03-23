@@ -7,6 +7,7 @@ import (
 	"log"
 
 	"github.com/go-fuego/fuego"
+	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	"github.com/unshade/citadelle/internal/config"
 	"github.com/unshade/citadelle/internal/controllers"
@@ -40,9 +41,15 @@ This command initializes the SQLite database and starts the Fuego web framework 
 		database := repositories.NewDatabase(db)
 
 		s := fuego.NewServer(
-			fuego.WithAddr("localhost:" + cfg.Port),
+			fuego.WithAddr("localhost:"+cfg.Port),
+			fuego.WithGlobalMiddlewares(cors.New(cors.Options{
+				AllowedOrigins:   []string{"*"},
+				AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+				AllowedHeaders:   []string{"*"},
+				AllowCredentials: true,
+			}).Handler),
 		)
-
+		
 		apiGroup := fuego.Group(s, "/api")
 
 		nodeCtrl := controllers.NewNodeController(*database)
