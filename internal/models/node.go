@@ -14,7 +14,7 @@ type ServerNode struct {
 	Nonce         []byte
 
 	IsDirectory bool
-	ParentId    uuid.UUID
+	ParentId    *uuid.UUID
 	Parent      *ServerNode
 
 	ProprietaryId uuid.UUID

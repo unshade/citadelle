@@ -83,9 +83,14 @@ func (fc *NodeController) CreateNode(c fuego.ContextWithBody[CreateFileRequest])
 		return NewErrorResponse[CreateNodeResponse](err)
 	}
 
-	parsedParentUuid, err := uuid.Parse(*body.ParentUuid)
-	if err != nil {
-		return NewErrorResponse[CreateNodeResponse](err)
+	// Handle parent UUID - if "root" or empty, it's a root level item (nil parent)
+	var parentIdPtr *uuid.UUID
+	if body.ParentUuid != nil && *body.ParentUuid != "" && *body.ParentUuid != "root" {
+		parsedParentUuid, err := uuid.Parse(*body.ParentUuid)
+		if err != nil {
+			return NewErrorResponse[CreateNodeResponse](err)
+		}
+		parentIdPtr = &parsedParentUuid
 	}
 
 	serverNode := models.ServerNode{
@@ -96,7 +101,7 @@ func (fc *NodeController) CreateNode(c fuego.ContextWithBody[CreateFileRequest])
 		EncryptedName:    encryptedName,
 		B64EncryptedPath: body.B64EncryptedPath,
 		IsDirectory:      body.IsDirectory,
-		ParentId:         parsedParentUuid,
+		ParentId:         parentIdPtr,
 		ProprietaryId:    proprietaryId,
 	}
 
@@ -156,12 +161,20 @@ func (fc *NodeController) IndexDirectory(c fuego.ContextNoBody) (*ApiResponse[In
 		return NewErrorResponse[IndexFilesResponse](errors.New("invalid user ID"))
 	}
 
-	parentUUID, err := uuid.Parse(c.PathParam("uuid"))
-	if err != nil {
-		return NewErrorResponse[IndexFilesResponse](err)
+	// Handle "root" or empty UUID for root directory
+	var nodes []*models.ServerNode
+	uuidParam := c.PathParam("uuid")
+
+	if uuidParam == "root" || uuidParam == "" || uuidParam == "00000000-0000-0000-0000-000000000000" {
+		nodes, err = fc.Database.ServerNodes.GetRootNodesByUserId(c.Context(), proprietaryId)
+	} else {
+		parentUUID, parseErr := uuid.Parse(uuidParam)
+		if parseErr != nil {
+			return NewErrorResponse[IndexFilesResponse](parseErr)
+		}
+		nodes, err = fc.Database.ServerNodes.GetChildrensByUserId(c.Context(), parentUUID, proprietaryId)
 	}
 
-	nodes, err := fc.Database.ServerNodes.GetChildrensByUserId(c.Context(), parentUUID, proprietaryId)
 	if err != nil {
 		return NewErrorResponse[IndexFilesResponse](err)
 	}

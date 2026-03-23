@@ -15,6 +15,7 @@ type ServerNodesRepo interface {
 	DeleteByIdAndUserId(ctx context.Context, nodeUUID uuid.UUID, userId uuid.UUID) error
 	DeleteRecursiveByUserId(ctx context.Context, nodeUUID uuid.UUID, userId uuid.UUID) ([]uuid.UUID, error)
 	GetChildrensByUserId(ctx context.Context, parentUUID uuid.UUID, userId uuid.UUID) ([]*models.ServerNode, error)
+	GetRootNodesByUserId(ctx context.Context, userId uuid.UUID) ([]*models.ServerNode, error)
 }
 
 type ServerNodes struct {
@@ -96,4 +97,8 @@ func (r *ServerNodes) getDescendantsByUserId(ctx context.Context, parentUUID uui
 
 func (r *ServerNodes) GetChildrensByUserId(ctx context.Context, parentUUID uuid.UUID, userId uuid.UUID) ([]*models.ServerNode, error) {
 	return gorm.G[*models.ServerNode](r.db).Where("parent_id = ? AND proprietary_id = ?", parentUUID, userId).Find(ctx)
+}
+
+func (r *ServerNodes) GetRootNodesByUserId(ctx context.Context, userId uuid.UUID) ([]*models.ServerNode, error) {
+	return gorm.G[*models.ServerNode](r.db).Where("parent_id IS NULL AND proprietary_id = ?", userId).Find(ctx)
 }
