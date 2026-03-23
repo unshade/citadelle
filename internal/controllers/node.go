@@ -9,6 +9,7 @@ import (
 	"github.com/go-fuego/fuego"
 	"github.com/go-fuego/fuego/option"
 	"github.com/google/uuid"
+	"github.com/unshade/citadelle/internal/middleware"
 	"github.com/unshade/citadelle/internal/models"
 	"github.com/unshade/citadelle/internal/repositories"
 )
@@ -23,14 +24,17 @@ func NewNodeController(database repositories.Database) *NodeController {
 	return &NodeController{Database: database}
 }
 
-func (fc *NodeController) Register(group *fuego.Server) {
+func (fc *NodeController) Register(group *fuego.Server, authMiddleware *middleware.JWTAuthMiddleware) {
+	// Create auth option to protect routes
+	authOption := option.Middleware(authMiddleware.Authenticate)
+
 	filesGroup := fuego.Group(group, "/nodes", option.Tags("nodes"))
 
-	fuego.Post(filesGroup, "/", fc.CreateNode)
-	fuego.Post(filesGroup, "/{uuid}", fc.SaveNode)
-	fuego.Get(filesGroup, "/{uuid}/download", fc.DownloadNode)
-	fuego.Get(filesGroup, "/{uuid}", fc.IndexDirectory)
-	fuego.Delete(filesGroup, "/{uuid}", fc.DeleteNode)
+	fuego.Post(filesGroup, "/", fc.CreateNode, authOption)
+	fuego.Post(filesGroup, "/{uuid}", fc.SaveNode, authOption)
+	fuego.Get(filesGroup, "/{uuid}/download", fc.DownloadNode, authOption)
+	fuego.Get(filesGroup, "/{uuid}", fc.IndexDirectory, authOption)
+	fuego.Delete(filesGroup, "/{uuid}", fc.DeleteNode, authOption)
 }
 
 type CreateFileRequest struct {
@@ -51,6 +55,17 @@ func (fc *NodeController) CreateNode(c fuego.ContextWithBody[CreateFileRequest])
 	body, err := c.Body()
 	if err != nil {
 		return NewErrorResponse[CreateNodeResponse](err)
+	}
+
+	// Get authenticated user ID from context
+	userIDStr := middleware.GetUserID(c.Context())
+	if userIDStr == "" {
+		return NewErrorResponse[CreateNodeResponse](errors.New("unauthorized"))
+	}
+
+	proprietaryId, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return NewErrorResponse[CreateNodeResponse](errors.New("invalid user ID"))
 	}
 
 	encryptedKey, err := base64.StdEncoding.DecodeString(body.B64EncryptedEncryptionKey)
@@ -82,6 +97,7 @@ func (fc *NodeController) CreateNode(c fuego.ContextWithBody[CreateFileRequest])
 		B64EncryptedPath: body.B64EncryptedPath,
 		IsDirectory:      body.IsDirectory,
 		ParentId:         parsedParentUuid,
+		ProprietaryId:    proprietaryId,
 	}
 
 	if err := fc.Database.ServerNodes.Create(c.Context(), serverNode); err != nil {
@@ -129,12 +145,23 @@ type IndexFilesResponse struct {
 }
 
 func (fc *NodeController) IndexDirectory(c fuego.ContextNoBody) (*ApiResponse[IndexFilesResponse], error) {
-	uuid, err := uuid.Parse(c.PathParam("uuid"))
+	// Get authenticated user ID from context
+	userIDStr := middleware.GetUserID(c.Context())
+	if userIDStr == "" {
+		return NewErrorResponse[IndexFilesResponse](errors.New("unauthorized"))
+	}
+
+	proprietaryId, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return NewErrorResponse[IndexFilesResponse](errors.New("invalid user ID"))
+	}
+
+	parentUUID, err := uuid.Parse(c.PathParam("uuid"))
 	if err != nil {
 		return NewErrorResponse[IndexFilesResponse](err)
 	}
 
-	nodes, err := fc.Database.ServerNodes.GetChildrens(c.Context(), uuid)
+	nodes, err := fc.Database.ServerNodes.GetChildrensByUserId(c.Context(), parentUUID, proprietaryId)
 	if err != nil {
 		return NewErrorResponse[IndexFilesResponse](err)
 	}
@@ -145,12 +172,23 @@ func (fc *NodeController) IndexDirectory(c fuego.ContextNoBody) (*ApiResponse[In
 type DeleteNodeResponse struct{}
 
 func (fc *NodeController) DeleteNode(c fuego.ContextNoBody) (*ApiResponse[DeleteNodeResponse], error) {
+	// Get authenticated user ID from context
+	userIDStr := middleware.GetUserID(c.Context())
+	if userIDStr == "" {
+		return NewErrorResponse[DeleteNodeResponse](errors.New("unauthorized"))
+	}
+
+	proprietaryId, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return NewErrorResponse[DeleteNodeResponse](errors.New("invalid user ID"))
+	}
+
 	nodeUuid, err := uuid.Parse(c.PathParam("uuid"))
 	if err != nil {
 		return NewErrorResponse[DeleteNodeResponse](err)
 	}
 
-	uuids, err := fc.Database.ServerNodes.DeleteRecursive(c.Context(), nodeUuid)
+	uuids, err := fc.Database.ServerNodes.DeleteRecursiveByUserId(c.Context(), nodeUuid, proprietaryId)
 	if err != nil {
 		return NewErrorResponse[DeleteNodeResponse](err)
 	}
@@ -166,12 +204,23 @@ func (fc *NodeController) DeleteNode(c fuego.ContextNoBody) (*ApiResponse[Delete
 }
 
 func (fc *NodeController) DownloadNode(c fuego.ContextNoBody) (any, error) {
+	// Get authenticated user ID from context
+	userIDStr := middleware.GetUserID(c.Context())
+	if userIDStr == "" {
+		return nil, errors.New("unauthorized")
+	}
+
+	proprietaryId, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return nil, errors.New("invalid user ID")
+	}
+
 	nodeUuid, err := uuid.Parse(c.PathParam("uuid"))
 	if err != nil {
 		return nil, err
 	}
 
-	node, err := fc.Database.ServerNodes.GetByID(c.Context(), nodeUuid)
+	node, err := fc.Database.ServerNodes.GetByIdAndUserId(c.Context(), nodeUuid, proprietaryId)
 	if err != nil {
 		return nil, err
 	}

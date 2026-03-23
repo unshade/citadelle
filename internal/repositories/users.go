@@ -10,7 +10,6 @@ import (
 
 type UsersRepo interface {
 	GetById(ctx context.Context, id uuid.UUID) (*models.User, error)
-	GetByIdUnscoped(ctx context.Context, id uuid.UUID) (*models.User, error)
 	Create(ctx context.Context, user models.User) error
 }
 
@@ -24,10 +23,6 @@ func NewUsersRepo(db *gorm.DB) UsersRepo {
 
 func (r *Users) GetById(ctx context.Context, id uuid.UUID) (*models.User, error) {
 	return gorm.G[*models.User](r.db).Where("id = ?", id).First(ctx)
-}
-
-func (r *Users) GetByIdUnscoped(ctx context.Context, id uuid.UUID) (*models.User, error) {
-	return gorm.G[*models.User](r.db.Unscoped()).Where("id = ?", id).First(ctx)
 }
 
 func (r *Users) Create(ctx context.Context, user models.User) error {

@@ -16,4 +16,7 @@ type ServerNode struct {
 	IsDirectory bool
 	ParentId    uuid.UUID
 	Parent      *ServerNode
+
+	ProprietaryId uuid.UUID
+	Proprietary   User
 }

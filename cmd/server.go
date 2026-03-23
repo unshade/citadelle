@@ -12,6 +12,7 @@ import (
 	"github.com/unshade/citadelle/internal/config"
 	"github.com/unshade/citadelle/internal/controllers"
 	"github.com/unshade/citadelle/internal/helpers"
+	"github.com/unshade/citadelle/internal/middleware"
 	"github.com/unshade/citadelle/internal/models"
 	"github.com/unshade/citadelle/internal/repositories"
 )
@@ -40,6 +41,9 @@ This command initializes the SQLite database and starts the Fuego web framework 
 
 		database := repositories.NewDatabase(db)
 
+		// Initialize auth middleware
+		authMiddleware := middleware.NewJWTAuthMiddleware(cfg.JWTSecret)
+
 		s := fuego.NewServer(
 			fuego.WithAddr("localhost:"+cfg.Port),
 			fuego.WithGlobalMiddlewares(cors.New(cors.Options{
@@ -49,11 +53,11 @@ This command initializes the SQLite database and starts the Fuego web framework 
 				AllowCredentials: true,
 			}).Handler),
 		)
-		
+
 		apiGroup := fuego.Group(s, "/api")
 
 		nodeCtrl := controllers.NewNodeController(*database)
-		nodeCtrl.Register(apiGroup)
+		nodeCtrl.Register(apiGroup, authMiddleware)
 
 		userCtrl := controllers.NewUserController(*database)
 		userCtrl.Register(apiGroup)
