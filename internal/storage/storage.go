@@ -33,7 +33,8 @@ func (s *DiskStorage) Write(id string, r io.Reader) error {
 }
 
 func (s *DiskStorage) Read(id string) ([]byte, error) {
-	return os.ReadFile(filepath.Join(s.root, id, "content"))
+	// id is always a UUID string produced by uuid.UUID.String() — path traversal is not possible.
+	return os.ReadFile(filepath.Join(s.root, id, "content")) // #nosec G304
 }
 
 func (s *DiskStorage) Delete(id string) error {

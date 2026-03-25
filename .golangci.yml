@@ -1,0 +1,21 @@
+version: "2"
+
+linters:
+  # errcheck, govet, ineffassign, staticcheck, unused are enabled by default
+  enable:
+    - gosec          # security-oriented checks (hardcoded creds, weak crypto…)
+    - noctx          # HTTP requests should carry a context
+    - bodyclose      # HTTP response bodies must be closed
+    - exhaustive     # switch statements must cover all enum values
+    - misspell       # catches common English spelling mistakes in comments/strings
+
+linters-settings:
+  gosec:
+    excludes:
+      - G115 # integer overflow (too noisy for normal arithmetic)
+
+issues:
+  exclude-rules:
+    # Test files are allowed to have unhandled errors (e.g. defer f.Close())
+    - path: "_test\\.go"
+      linters: [errcheck]
