@@ -31,11 +31,6 @@ func (h *NodeHandler) Register(group *fuego.Server, authMiddleware *middleware.J
 	fuego.Delete(nodesGroup, "/{uuid}", h.DeleteNode, authOption)
 }
 
-// mustParseUserID extracts and parses the authenticated user ID from context.
-func mustParseUserID(c interface{ Context() interface{ Value(any) any } }) (uuid.UUID, error) {
-	return uuid.Nil, nil // unused placeholder; each handler calls middleware.GetUserID directly
-}
-
 // --- CreateNode ---
 
 type CreateNodeRequest struct {
