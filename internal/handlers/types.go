@@ -1,6 +1,4 @@
-package controllers
-
-type None = any
+package handlers
 
 type ApiResponse[T any] struct {
 	Data    *T     `json:"data"`
@@ -8,10 +6,7 @@ type ApiResponse[T any] struct {
 }
 
 func NewApiResponse[T any](data *T, message string) (*ApiResponse[T], error) {
-	return &ApiResponse[T]{
-		Data:    data,
-		Message: message,
-	}, nil
+	return &ApiResponse[T]{Data: data, Message: message}, nil
 }
 
 func NewErrorResponse[T any](err error) (*ApiResponse[T], error) {

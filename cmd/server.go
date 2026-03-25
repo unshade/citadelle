@@ -10,19 +10,20 @@ import (
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	"github.com/unshade/citadelle/internal/config"
-	"github.com/unshade/citadelle/internal/controllers"
+	"github.com/unshade/citadelle/internal/handlers"
 	"github.com/unshade/citadelle/internal/helpers"
 	"github.com/unshade/citadelle/internal/middleware"
 	"github.com/unshade/citadelle/internal/models"
 	"github.com/unshade/citadelle/internal/repositories"
+	"github.com/unshade/citadelle/internal/services"
+	"github.com/unshade/citadelle/internal/storage"
 )
 
-// serverCmd represents the server subcommand
 var serverCmd = &cobra.Command{
 	Use:   "server",
 	Short: "Start the HTTP server",
 	Long: `Start the citadelle HTTP server with REST API endpoints.
-	
+
 This command initializes the SQLite database and starts the Fuego web framework server.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg, err := config.Load()
@@ -39,11 +40,21 @@ This command initializes the SQLite database and starts the Fuego web framework 
 			log.Fatalf("Failed to migrate database: %v", err)
 		}
 
+		// Repositories
 		database := repositories.NewDatabase(db)
 
-		// Initialize auth middleware
+		// Storage
+		fileStorage := storage.NewDiskStorage("./data")
+
+		// Services
+		authService := services.NewAuthService(database.Users, cfg.JWTSecret)
+		userService := services.NewUserService(database.Users)
+		nodeService := services.NewNodeService(database.ServerNodes, fileStorage)
+
+		// Auth middleware
 		authMiddleware := middleware.NewJWTAuthMiddleware(cfg.JWTSecret)
 
+		// HTTP server
 		s := fuego.NewServer(
 			fuego.WithAddr("localhost:"+cfg.Port),
 			fuego.WithGlobalMiddlewares(cors.New(cors.Options{
@@ -56,14 +67,9 @@ This command initializes the SQLite database and starts the Fuego web framework 
 
 		apiGroup := fuego.Group(s, "/api")
 
-		nodeCtrl := controllers.NewNodeController(*database)
-		nodeCtrl.Register(apiGroup, authMiddleware)
-
-		userCtrl := controllers.NewUserController(*database)
-		userCtrl.Register(apiGroup)
-
-		authCtrl := controllers.NewAuthController(*database, cfg.JWTSecret)
-		authCtrl.Register(apiGroup)
+		handlers.NewNodeHandler(nodeService).Register(apiGroup, authMiddleware)
+		handlers.NewUserHandler(userService).Register(apiGroup)
+		handlers.NewAuthHandler(authService).Register(apiGroup)
 
 		log.Printf("Starting server on http://localhost:%s", cfg.Port)
 
