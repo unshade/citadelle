@@ -116,13 +116,33 @@ func (fc *NodeController) CreateNode(c fuego.ContextWithBody[CreateFileRequest])
 
 type SaveFileResponse struct{}
 
-func (fc *NodeController) SaveNode(c fuego.ContextNoBody) (*ApiResponse[SaveFileResponse], error) {
-	uuid := c.PathParam("uuid")
+const maxUploadSize = 100 << 20 // 100 MB
 
-	storagePath := filepath.Join(dataRoot, uuid)
+func (fc *NodeController) SaveNode(c fuego.ContextNoBody) (*ApiResponse[SaveFileResponse], error) {
+	userIDStr := middleware.GetUserID(c.Context())
+	if userIDStr == "" {
+		return NewErrorResponse[SaveFileResponse](errors.New("unauthorized"))
+	}
+
+	proprietaryId, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return NewErrorResponse[SaveFileResponse](errors.New("invalid user ID"))
+	}
+
+	nodeUuid, err := uuid.Parse(c.PathParam("uuid"))
+	if err != nil {
+		return NewErrorResponse[SaveFileResponse](err)
+	}
+
+	_, err = fc.Database.ServerNodes.GetByIdAndUserId(c.Context(), nodeUuid, proprietaryId)
+	if err != nil {
+		return NewErrorResponse[SaveFileResponse](errors.New("node not found or not accessible"))
+	}
+
+	storagePath := filepath.Join(dataRoot, nodeUuid.String())
 	filePath := filepath.Join(storagePath, "content")
 
-	if err := os.MkdirAll(storagePath, 0777); err != nil {
+	if err := os.MkdirAll(storagePath, 0700); err != nil {
 		return NewErrorResponse[SaveFileResponse](err)
 	}
 
@@ -131,13 +151,17 @@ func (fc *NodeController) SaveNode(c fuego.ContextNoBody) (*ApiResponse[SaveFile
 		return NewErrorResponse[SaveFileResponse](err)
 	}
 
+	if header.Size > maxUploadSize {
+		return NewErrorResponse[SaveFileResponse](errors.New("file too large"))
+	}
+
 	rawEncryptedFile := make([]byte, header.Size)
 	_, err = encryptedFile.Read(rawEncryptedFile)
 	if err != nil {
 		return NewErrorResponse[SaveFileResponse](err)
 	}
 
-	err = os.WriteFile(filePath, rawEncryptedFile, 0777)
+	err = os.WriteFile(filePath, rawEncryptedFile, 0600)
 	if err != nil {
 		return NewErrorResponse[SaveFileResponse](err)
 	}

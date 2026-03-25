@@ -47,9 +47,9 @@ This command initializes the SQLite database and starts the Fuego web framework 
 		s := fuego.NewServer(
 			fuego.WithAddr("localhost:"+cfg.Port),
 			fuego.WithGlobalMiddlewares(cors.New(cors.Options{
-				AllowedOrigins:   []string{"*"},
+				AllowedOrigins:   cfg.AllowedOrigins,
 				AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-				AllowedHeaders:   []string{"*"},
+				AllowedHeaders:   []string{"Authorization", "Content-Type"},
 				AllowCredentials: true,
 			}).Handler),
 		)
