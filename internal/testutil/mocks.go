@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/unshade/citadelle/internal/models"
+	"github.com/unshade/citadelle/internal/services"
 )
 
 // --- UsersRepo mock ---
@@ -59,6 +60,66 @@ func (m *MockNodesRepo) GetChildrensByUserId(ctx context.Context, parentID uuid.
 
 func (m *MockNodesRepo) GetRootNodesByUserId(ctx context.Context, userID uuid.UUID) ([]*models.ServerNode, error) {
 	return m.GetRootNodesByUserIdFunc(ctx, userID)
+}
+
+// --- AuthService mock ---
+
+type MockAuthService struct {
+	GetChallengeFunc    func(ctx context.Context, userID uuid.UUID) (string, error)
+	VerifyChallengeFunc func(ctx context.Context, userID uuid.UUID, clearChallenge string) (string, error)
+}
+
+func (m *MockAuthService) GetChallenge(ctx context.Context, userID uuid.UUID) (string, error) {
+	return m.GetChallengeFunc(ctx, userID)
+}
+
+func (m *MockAuthService) VerifyChallenge(ctx context.Context, userID uuid.UUID, clearChallenge string) (string, error) {
+	return m.VerifyChallengeFunc(ctx, userID, clearChallenge)
+}
+
+// --- UserService mock ---
+
+type MockUserService struct {
+	GetUserFunc    func(ctx context.Context, id uuid.UUID) (*models.User, error)
+	CreateUserFunc func(ctx context.Context, input services.CreateUserInput) (uuid.UUID, error)
+}
+
+func (m *MockUserService) GetUser(ctx context.Context, id uuid.UUID) (*models.User, error) {
+	return m.GetUserFunc(ctx, id)
+}
+
+func (m *MockUserService) CreateUser(ctx context.Context, input services.CreateUserInput) (uuid.UUID, error) {
+	return m.CreateUserFunc(ctx, input)
+}
+
+// --- NodeService mock ---
+
+type MockNodeService struct {
+	CreateNodeFunc     func(ctx context.Context, userID uuid.UUID, input services.CreateNodeInput) (uuid.UUID, error)
+	SaveNodeFunc       func(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID, file io.Reader, size int64) error
+	DownloadNodeFunc   func(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID) (*models.ServerNode, []byte, error)
+	IndexDirectoryFunc func(ctx context.Context, userID uuid.UUID, uuidParam string) ([]*models.ServerNode, error)
+	DeleteNodeFunc     func(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID) error
+}
+
+func (m *MockNodeService) CreateNode(ctx context.Context, userID uuid.UUID, input services.CreateNodeInput) (uuid.UUID, error) {
+	return m.CreateNodeFunc(ctx, userID, input)
+}
+
+func (m *MockNodeService) SaveNode(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID, file io.Reader, size int64) error {
+	return m.SaveNodeFunc(ctx, userID, nodeID, file, size)
+}
+
+func (m *MockNodeService) DeleteNode(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID) error {
+	return m.DeleteNodeFunc(ctx, userID, nodeID)
+}
+
+func (m *MockNodeService) IndexDirectory(ctx context.Context, userID uuid.UUID, uuidParam string) ([]*models.ServerNode, error) {
+	return m.IndexDirectoryFunc(ctx, userID, uuidParam)
+}
+
+func (m *MockNodeService) DownloadNode(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID) (*models.ServerNode, []byte, error) {
+	return m.DownloadNodeFunc(ctx, userID, nodeID)
 }
 
 // --- FileStorage mock ---
