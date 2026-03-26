@@ -24,14 +24,14 @@ var serverCmd = &cobra.Command{
 	Short: "Start the HTTP server",
 	Long: `Start the citadelle HTTP server with REST API endpoints.
 
-This command initializes the SQLite database and starts the Fuego web framework server.`,
+This command initializes the PostgreSQL database and starts the Fuego web framework server.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg, err := config.Load()
 		if err != nil {
 			log.Fatalf("Failed to load config: %v", err)
 		}
 
-		db, err := helpers.InitServerDb(cfg.DBPath)
+		db, err := helpers.InitServerDb(cfg.Database)
 		if err != nil {
 			log.Fatalf("Failed to initialize database: %v", err)
 		}
