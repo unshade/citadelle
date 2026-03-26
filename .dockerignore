@@ -1,0 +1,11 @@
+# Exclude everything by default — only explicitly allow what the build needs.
+*
+
+# Go module files
+!go.mod
+!go.sum
+
+# Application source
+!main.go
+!cmd/
+!internal/
