@@ -67,12 +67,16 @@ func TestGetUser(t *testing.T) {
 
 func TestCreateUser(t *testing.T) {
 	salt := []byte("salt-bytes")
+	masterKeyNonce := []byte("mk-nonce")
 	encKey := []byte("enc-master-key")
+	challengeNonce := []byte("ch-nonce")
 	encChallenge := []byte("enc-challenge")
 
 	validBody := handlers.CreateUserRequest{
 		B64Salt:               base64.StdEncoding.EncodeToString(salt),
+		B64MasterKeyNonce:     base64.StdEncoding.EncodeToString(masterKeyNonce),
 		B64EncryptedMasterKey: base64.StdEncoding.EncodeToString(encKey),
+		B64ChallengeNonce:     base64.StdEncoding.EncodeToString(challengeNonce),
 		B64EncryptedChallenge: base64.StdEncoding.EncodeToString(encChallenge),
 		ClearChallenge:        "mysecret",
 	}
@@ -82,7 +86,9 @@ func TestCreateUser(t *testing.T) {
 		mock := &testutil.MockUserService{
 			CreateUserFunc: func(_ context.Context, input services.CreateUserInput) (uuid.UUID, error) {
 				assert.Equal(t, salt, input.Salt)
+				assert.Equal(t, masterKeyNonce, input.MasterKeyNonce)
 				assert.Equal(t, encKey, input.EncryptedMasterKey)
+				assert.Equal(t, challengeNonce, input.ChallengeNonce)
 				assert.Equal(t, encChallenge, input.EncryptedChallenge)
 				assert.Equal(t, "mysecret", input.ClearChallenge)
 				return newID, nil
@@ -104,7 +110,9 @@ func TestCreateUser(t *testing.T) {
 
 		body := handlers.CreateUserRequest{
 			B64Salt:               "!!!not-base64!!!",
+			B64MasterKeyNonce:     base64.StdEncoding.EncodeToString(masterKeyNonce),
 			B64EncryptedMasterKey: base64.StdEncoding.EncodeToString(encKey),
+			B64ChallengeNonce:     base64.StdEncoding.EncodeToString(challengeNonce),
 			B64EncryptedChallenge: base64.StdEncoding.EncodeToString(encChallenge),
 		}
 		ctx := fuego.NewMockContext[handlers.CreateUserRequest, any](body, nil)

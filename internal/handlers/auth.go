@@ -23,7 +23,9 @@ func (h *AuthHandler) Register(group *fuego.Server) {
 	fuego.Post(authGroup, "/verify", h.VerifyChallenge)
 }
 
+// ChallengeResponse carries the sealed challenge as separate nonce + ciphertext.
 type ChallengeResponse struct {
+	B64ChallengeNonce     string `json:"b64ChallengeNonce"`
 	B64EncryptedChallenge string `json:"b64EncryptedChallenge"`
 }
 
@@ -32,11 +34,14 @@ func (h *AuthHandler) GetChallenge(c fuego.ContextNoBody) (*ApiResponse[Challeng
 	if err != nil {
 		return NewErrorResponse[ChallengeResponse](err)
 	}
-	b64Challenge, err := h.authService.GetChallenge(c.Context(), userID)
+	data, err := h.authService.GetChallenge(c.Context(), userID)
 	if err != nil {
 		return NewErrorResponse[ChallengeResponse](err)
 	}
-	return NewApiResponse(&ChallengeResponse{B64EncryptedChallenge: b64Challenge}, "challenge retrieved")
+	return NewApiResponse(&ChallengeResponse{
+		B64ChallengeNonce:     data.Nonce,
+		B64EncryptedChallenge: data.Ciphertext,
+	}, "challenge retrieved")
 }
 
 type VerifyRequest struct {

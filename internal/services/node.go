@@ -22,9 +22,12 @@ type NodeService interface {
 }
 
 type CreateNodeInput struct {
+	KeyNonce         []byte
 	EncryptedKey     []byte
-	Nonce            []byte
+	ContentNonce     []byte
+	NameNonce        []byte
 	EncryptedName    []byte
+	B64PathNonce     string
 	B64EncryptedPath string
 	IsDirectory      bool
 	ParentId         *uuid.UUID
@@ -43,11 +46,14 @@ func NewNodeService(nodes repositories.ServerNodesRepo, storage storage.FileStor
 func (s *nodeService) CreateNode(ctx context.Context, userID uuid.UUID, input CreateNodeInput) (uuid.UUID, error) {
 	node := models.ServerNode{
 		Id:               uuid.New(),
+		KeyNonce:         input.KeyNonce,
 		EncryptedKey:     input.EncryptedKey,
-		Nonce:            input.Nonce,
-		Version:          input.Version,
+		ContentNonce:     input.ContentNonce,
+		NameNonce:        input.NameNonce,
 		EncryptedName:    input.EncryptedName,
+		B64PathNonce:     input.B64PathNonce,
 		B64EncryptedPath: input.B64EncryptedPath,
+		Version:          input.Version,
 		IsDirectory:      input.IsDirectory,
 		ParentId:         input.ParentId,
 		ProprietaryId:    userID,

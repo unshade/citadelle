@@ -30,8 +30,10 @@ func TestCreateNode_ReturnsNewUUID_OnSuccess(t *testing.T) {
 
 	svc := services.NewNodeService(nodes, &testutil.MockFileStorage{})
 	id, err := svc.CreateNode(context.Background(), userID, services.CreateNodeInput{
+		KeyNonce:      []byte("key-nonce"),
 		EncryptedKey:  []byte("key"),
-		Nonce:         []byte("nonce"),
+		ContentNonce:  []byte("content-nonce"),
+		NameNonce:     []byte("name-nonce"),
 		EncryptedName: []byte("name"),
 		IsDirectory:   false,
 		Version:       1,

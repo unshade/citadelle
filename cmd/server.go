@@ -61,6 +61,7 @@ This command initializes the PostgreSQL database and starts the Fuego web framew
 				AllowedOrigins:   cfg.AllowedOrigins,
 				AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 				AllowedHeaders:   []string{"Authorization", "Content-Type"},
+				ExposedHeaders:   []string{"X-Key-Nonce", "X-Encrypted-Key", "X-Content-Nonce", "X-Name-Nonce", "X-Encrypted-Name"},
 				AllowCredentials: true,
 			}).Handler),
 		)

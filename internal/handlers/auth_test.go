@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/unshade/citadelle/internal/handlers"
+	"github.com/unshade/citadelle/internal/services"
 	"github.com/unshade/citadelle/internal/testutil"
 )
 
@@ -18,9 +19,9 @@ func TestGetChallenge(t *testing.T) {
 
 	t.Run("returns challenge for valid user ID", func(t *testing.T) {
 		mock := &testutil.MockAuthService{
-			GetChallengeFunc: func(_ context.Context, id uuid.UUID) (string, error) {
+			GetChallengeFunc: func(_ context.Context, id uuid.UUID) (services.ChallengeData, error) {
 				assert.Equal(t, userID, id)
-				return "base64encodedchallenge==", nil
+				return services.ChallengeData{Nonce: "nonce==", Ciphertext: "ciphertext=="}, nil
 			},
 		}
 		h := handlers.NewAuthHandler(mock)
@@ -32,7 +33,8 @@ func TestGetChallenge(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		assert.Equal(t, "base64encodedchallenge==", resp.Data.B64EncryptedChallenge)
+		assert.Equal(t, "nonce==", resp.Data.B64ChallengeNonce)
+		assert.Equal(t, "ciphertext==", resp.Data.B64EncryptedChallenge)
 	})
 
 	t.Run("returns error for invalid UUID", func(t *testing.T) {
@@ -47,8 +49,8 @@ func TestGetChallenge(t *testing.T) {
 
 	t.Run("returns error when service fails", func(t *testing.T) {
 		mock := &testutil.MockAuthService{
-			GetChallengeFunc: func(_ context.Context, _ uuid.UUID) (string, error) {
-				return "", errors.New("user not found")
+			GetChallengeFunc: func(_ context.Context, _ uuid.UUID) (services.ChallengeData, error) {
+				return services.ChallengeData{}, errors.New("user not found")
 			},
 		}
 		h := handlers.NewAuthHandler(mock)

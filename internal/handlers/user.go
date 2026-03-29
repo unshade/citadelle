@@ -36,9 +36,13 @@ func (h *UserHandler) GetUser(c fuego.ContextNoBody) (*ApiResponse[models.User],
 	return NewApiResponse(user, "ok")
 }
 
+// CreateUserRequest carries all encrypted material produced client-side during signup.
+// Each sealed value is split into nonce + ciphertext — never concatenated.
 type CreateUserRequest struct {
 	B64Salt               string `json:"b64Salt"`
+	B64MasterKeyNonce     string `json:"b64MasterKeyNonce"`
 	B64EncryptedMasterKey string `json:"b64EncryptedMasterKey"`
+	B64ChallengeNonce     string `json:"b64ChallengeNonce"`
 	B64EncryptedChallenge string `json:"b64EncryptedChallenge"`
 	ClearChallenge        string `json:"clearChallenge"`
 }
@@ -57,7 +61,15 @@ func (h *UserHandler) CreateUser(c fuego.ContextWithBody[CreateUserRequest]) (*A
 	if err != nil {
 		return NewErrorResponse[CreateUserResponse](err)
 	}
+	masterKeyNonce, err := base64.StdEncoding.DecodeString(body.B64MasterKeyNonce)
+	if err != nil {
+		return NewErrorResponse[CreateUserResponse](err)
+	}
 	encryptedMasterKey, err := base64.StdEncoding.DecodeString(body.B64EncryptedMasterKey)
+	if err != nil {
+		return NewErrorResponse[CreateUserResponse](err)
+	}
+	challengeNonce, err := base64.StdEncoding.DecodeString(body.B64ChallengeNonce)
 	if err != nil {
 		return NewErrorResponse[CreateUserResponse](err)
 	}
@@ -68,7 +80,9 @@ func (h *UserHandler) CreateUser(c fuego.ContextWithBody[CreateUserRequest]) (*A
 
 	id, err := h.userService.CreateUser(c.Context(), services.CreateUserInput{
 		Salt:               salt,
+		MasterKeyNonce:     masterKeyNonce,
 		EncryptedMasterKey: encryptedMasterKey,
+		ChallengeNonce:     challengeNonce,
 		EncryptedChallenge: encryptedChallenge,
 		ClearChallenge:     body.ClearChallenge,
 	})
