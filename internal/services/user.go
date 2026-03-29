@@ -15,7 +15,9 @@ type UserService interface {
 
 type CreateUserInput struct {
 	Salt               []byte
+	MasterKeyNonce     []byte
 	EncryptedMasterKey []byte
+	ChallengeNonce     []byte
 	EncryptedChallenge []byte
 	ClearChallenge     string
 }
@@ -37,7 +39,9 @@ func (s *userService) CreateUser(ctx context.Context, input CreateUserInput) (uu
 	user := models.User{
 		Id:                 id,
 		Salt:               input.Salt,
+		MasterKeyNonce:     input.MasterKeyNonce,
 		EncryptedMasterKey: input.EncryptedMasterKey,
+		ChallengeNonce:     input.ChallengeNonce,
 		EncryptedChallenge: input.EncryptedChallenge,
 		ClearChallenge:     input.ClearChallenge,
 	}

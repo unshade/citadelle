@@ -56,7 +56,9 @@ func TestCreateUser_ReturnsNewUUID_OnSuccess(t *testing.T) {
 
 	input := services.CreateUserInput{
 		Salt:               []byte("salt"),
+		MasterKeyNonce:     []byte("mk-nonce"),
 		EncryptedMasterKey: []byte("key"),
+		ChallengeNonce:     []byte("ch-nonce"),
 		EncryptedChallenge: []byte("challenge"),
 		ClearChallenge:     "clear",
 	}
@@ -70,7 +72,9 @@ func TestCreateUser_ReturnsNewUUID_OnSuccess(t *testing.T) {
 	// The repo received a user whose fields match the input
 	assert.Equal(t, id, createdUser.Id)
 	assert.Equal(t, input.Salt, createdUser.Salt)
+	assert.Equal(t, input.MasterKeyNonce, createdUser.MasterKeyNonce)
 	assert.Equal(t, input.EncryptedMasterKey, createdUser.EncryptedMasterKey)
+	assert.Equal(t, input.ChallengeNonce, createdUser.ChallengeNonce)
 	assert.Equal(t, input.EncryptedChallenge, createdUser.EncryptedChallenge)
 	assert.Equal(t, input.ClearChallenge, createdUser.ClearChallenge)
 }

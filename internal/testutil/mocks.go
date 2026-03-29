@@ -65,11 +65,11 @@ func (m *MockNodesRepo) GetRootNodesByUserId(ctx context.Context, userID uuid.UU
 // --- AuthService mock ---
 
 type MockAuthService struct {
-	GetChallengeFunc    func(ctx context.Context, userID uuid.UUID) (string, error)
+	GetChallengeFunc    func(ctx context.Context, userID uuid.UUID) (services.ChallengeData, error)
 	VerifyChallengeFunc func(ctx context.Context, userID uuid.UUID, clearChallenge string) (string, error)
 }
 
-func (m *MockAuthService) GetChallenge(ctx context.Context, userID uuid.UUID) (string, error) {
+func (m *MockAuthService) GetChallenge(ctx context.Context, userID uuid.UUID) (services.ChallengeData, error) {
 	return m.GetChallengeFunc(ctx, userID)
 }
 

@@ -33,10 +33,16 @@ func (h *NodeHandler) Register(group *fuego.Server, authMiddleware *middleware.J
 
 // --- CreateNode ---
 
+// CreateNodeRequest carries all encrypted node metadata.
+// Each sealed value is split into nonce + ciphertext — never concatenated.
+// Key/content fields are empty strings for directory nodes.
 type CreateNodeRequest struct {
+	B64KeyNonce               string  `json:"b64KeyNonce"`
 	B64EncryptedEncryptionKey string  `json:"b64EncryptedEncryptionKey"`
-	B64EncryptionNonce        string  `json:"b64EncryptionNonce"`
+	B64ContentNonce           string  `json:"b64ContentNonce"`
+	B64NameNonce              string  `json:"b64NameNonce"`
 	B64EncryptedName          string  `json:"b64EncryptedName"`
+	B64PathNonce              string  `json:"b64PathNonce"`
 	B64EncryptedPath          string  `json:"b64EncryptedPath"`
 	IsDirectory               bool    `json:"isDirectory"`
 	ParentUuid                *string `json:"parentUuid"`
@@ -62,11 +68,19 @@ func (h *NodeHandler) CreateNode(c fuego.ContextWithBody[CreateNodeRequest]) (*A
 		return NewErrorResponse[CreateNodeResponse](err)
 	}
 
+	keyNonce, err := base64.StdEncoding.DecodeString(body.B64KeyNonce)
+	if err != nil {
+		return NewErrorResponse[CreateNodeResponse](err)
+	}
 	encryptedKey, err := base64.StdEncoding.DecodeString(body.B64EncryptedEncryptionKey)
 	if err != nil {
 		return NewErrorResponse[CreateNodeResponse](err)
 	}
-	nonce, err := base64.StdEncoding.DecodeString(body.B64EncryptionNonce)
+	contentNonce, err := base64.StdEncoding.DecodeString(body.B64ContentNonce)
+	if err != nil {
+		return NewErrorResponse[CreateNodeResponse](err)
+	}
+	nameNonce, err := base64.StdEncoding.DecodeString(body.B64NameNonce)
 	if err != nil {
 		return NewErrorResponse[CreateNodeResponse](err)
 	}
@@ -85,9 +99,12 @@ func (h *NodeHandler) CreateNode(c fuego.ContextWithBody[CreateNodeRequest]) (*A
 	}
 
 	id, err := h.nodeService.CreateNode(c.Context(), userID, services.CreateNodeInput{
+		KeyNonce:         keyNonce,
 		EncryptedKey:     encryptedKey,
-		Nonce:            nonce,
+		ContentNonce:     contentNonce,
+		NameNonce:        nameNonce,
 		EncryptedName:    encryptedName,
+		B64PathNonce:     body.B64PathNonce,
 		B64EncryptedPath: body.B64EncryptedPath,
 		IsDirectory:      body.IsDirectory,
 		ParentId:         parentID,
@@ -199,8 +216,11 @@ func (h *NodeHandler) DownloadNode(c fuego.ContextNoBody) (any, error) {
 	w := c.Response()
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", "attachment")
+	// Nonce and ciphertext sent as separate headers — no concatenation.
+	w.Header().Set("X-Key-Nonce", base64.StdEncoding.EncodeToString(node.KeyNonce))
 	w.Header().Set("X-Encrypted-Key", base64.StdEncoding.EncodeToString(node.EncryptedKey))
-	w.Header().Set("X-Encryption-Nonce", base64.StdEncoding.EncodeToString(node.Nonce))
+	w.Header().Set("X-Content-Nonce", base64.StdEncoding.EncodeToString(node.ContentNonce))
+	w.Header().Set("X-Name-Nonce", base64.StdEncoding.EncodeToString(node.NameNonce))
 	w.Header().Set("X-Encrypted-Name", base64.StdEncoding.EncodeToString(node.EncryptedName))
 
 	_, err = w.Write(data)

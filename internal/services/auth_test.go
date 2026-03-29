@@ -16,8 +16,9 @@ import (
 
 const testJWTSecret = "test-secret-min-32-characters-long!!"
 
-func TestGetChallenge_ReturnsBase64Challenge_WhenUserExists(t *testing.T) {
+func TestGetChallenge_ReturnsChallengeData_WhenUserExists(t *testing.T) {
 	userID := uuid.New()
+	challengeNonce := []byte("nonce-bytes")
 	encryptedChallenge := []byte("encrypted-challenge-bytes")
 
 	repo := &testutil.MockUsersRepo{
@@ -25,16 +26,18 @@ func TestGetChallenge_ReturnsBase64Challenge_WhenUserExists(t *testing.T) {
 			assert.Equal(t, userID, id)
 			return &models.User{
 				Id:                 userID,
+				ChallengeNonce:     challengeNonce,
 				EncryptedChallenge: encryptedChallenge,
 			}, nil
 		},
 	}
 
 	svc := services.NewAuthService(repo, testJWTSecret)
-	b64, err := svc.GetChallenge(context.Background(), userID)
+	data, err := svc.GetChallenge(context.Background(), userID)
 
 	require.NoError(t, err)
-	assert.NotEmpty(t, b64)
+	assert.NotEmpty(t, data.Nonce)
+	assert.NotEmpty(t, data.Ciphertext)
 }
 
 func TestGetChallenge_ReturnsError_WhenUserNotFound(t *testing.T) {
@@ -45,10 +48,12 @@ func TestGetChallenge_ReturnsError_WhenUserNotFound(t *testing.T) {
 	}
 
 	svc := services.NewAuthService(repo, testJWTSecret)
-	_, err := svc.GetChallenge(context.Background(), uuid.New())
+	data, err := svc.GetChallenge(context.Background(), uuid.New())
 
 	require.Error(t, err)
 	assert.Equal(t, "user not found", err.Error())
+	assert.Empty(t, data.Nonce)
+	assert.Empty(t, data.Ciphertext)
 }
 
 func TestVerifyChallenge_ReturnsSignedJWT_WhenChallengeMatches(t *testing.T) {
