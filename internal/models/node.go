@@ -27,6 +27,7 @@ type ServerNode struct {
 	ContentNonce []byte
 
 	IsDirectory bool
+	IsFavourite bool
 	ParentId    *uuid.UUID
 	Parent      *ServerNode
 
