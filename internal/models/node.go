@@ -17,12 +17,7 @@ type ServerNode struct {
 	NameNonce     []byte
 	EncryptedName []byte
 
-	// Per-node content key sealed with the master key.
-	// Empty for directories (no file content).
-	KeyNonce     []byte
-	EncryptedKey []byte
-
-	// AES-GCM nonce used to encrypt the file content blob.
+	// AES-GCM nonce used to encrypt the file content blob with the master key.
 	// Empty for directories.
 	ContentNonce []byte
 
