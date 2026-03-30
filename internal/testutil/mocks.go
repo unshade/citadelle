@@ -36,6 +36,8 @@ type MockNodesRepo struct {
 	DeleteRecursiveByUserIdFunc func(ctx context.Context, nodeID uuid.UUID, userID uuid.UUID) ([]uuid.UUID, error)
 	GetChildrensByUserIdFunc    func(ctx context.Context, parentID uuid.UUID, userID uuid.UUID) ([]*models.ServerNode, error)
 	GetRootNodesByUserIdFunc    func(ctx context.Context, userID uuid.UUID) ([]*models.ServerNode, error)
+	SetFavouriteFunc            func(ctx context.Context, nodeID uuid.UUID, userID uuid.UUID, isFavourite bool) error
+	GetFavouritesByUserIdFunc   func(ctx context.Context, userID uuid.UUID) ([]*models.ServerNode, error)
 }
 
 func (m *MockNodesRepo) Create(ctx context.Context, node models.ServerNode) error {
@@ -60,6 +62,14 @@ func (m *MockNodesRepo) GetChildrensByUserId(ctx context.Context, parentID uuid.
 
 func (m *MockNodesRepo) GetRootNodesByUserId(ctx context.Context, userID uuid.UUID) ([]*models.ServerNode, error) {
 	return m.GetRootNodesByUserIdFunc(ctx, userID)
+}
+
+func (m *MockNodesRepo) SetFavourite(ctx context.Context, nodeID uuid.UUID, userID uuid.UUID, isFavourite bool) error {
+	return m.SetFavouriteFunc(ctx, nodeID, userID, isFavourite)
+}
+
+func (m *MockNodesRepo) GetFavouritesByUserId(ctx context.Context, userID uuid.UUID) ([]*models.ServerNode, error) {
+	return m.GetFavouritesByUserIdFunc(ctx, userID)
 }
 
 // --- AuthService mock ---
@@ -100,6 +110,8 @@ type MockNodeService struct {
 	DownloadNodeFunc   func(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID) (*models.ServerNode, []byte, error)
 	IndexDirectoryFunc func(ctx context.Context, userID uuid.UUID, uuidParam string) ([]*models.ServerNode, error)
 	DeleteNodeFunc     func(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID) error
+	SetFavouriteFunc   func(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID, isFavourite bool) error
+	GetFavouritesFunc  func(ctx context.Context, userID uuid.UUID) ([]*models.ServerNode, error)
 }
 
 func (m *MockNodeService) CreateNode(ctx context.Context, userID uuid.UUID, input services.CreateNodeInput) (uuid.UUID, error) {
@@ -120,6 +132,14 @@ func (m *MockNodeService) IndexDirectory(ctx context.Context, userID uuid.UUID, 
 
 func (m *MockNodeService) DownloadNode(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID) (*models.ServerNode, []byte, error) {
 	return m.DownloadNodeFunc(ctx, userID, nodeID)
+}
+
+func (m *MockNodeService) SetFavourite(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID, isFavourite bool) error {
+	return m.SetFavouriteFunc(ctx, userID, nodeID, isFavourite)
+}
+
+func (m *MockNodeService) GetFavourites(ctx context.Context, userID uuid.UUID) ([]*models.ServerNode, error) {
+	return m.GetFavouritesFunc(ctx, userID)
 }
 
 // --- FileStorage mock ---

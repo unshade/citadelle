@@ -19,6 +19,8 @@ type NodeService interface {
 	DownloadNode(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID) (*models.ServerNode, []byte, error)
 	IndexDirectory(ctx context.Context, userID uuid.UUID, uuidParam string) ([]*models.ServerNode, error)
 	DeleteNode(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID) error
+	SetFavourite(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID, isFavourite bool) error
+	GetFavourites(ctx context.Context, userID uuid.UUID) ([]*models.ServerNode, error)
 }
 
 type CreateNodeInput struct {
@@ -98,6 +100,14 @@ func (s *nodeService) IndexDirectory(ctx context.Context, userID uuid.UUID, uuid
 		return nil, err
 	}
 	return s.nodes.GetChildrensByUserId(ctx, parentUUID, userID)
+}
+
+func (s *nodeService) SetFavourite(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID, isFavourite bool) error {
+	return s.nodes.SetFavourite(ctx, nodeID, userID, isFavourite)
+}
+
+func (s *nodeService) GetFavourites(ctx context.Context, userID uuid.UUID) ([]*models.ServerNode, error) {
+	return s.nodes.GetFavouritesByUserId(ctx, userID)
 }
 
 func (s *nodeService) DeleteNode(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID) error {

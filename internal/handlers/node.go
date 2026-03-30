@@ -26,9 +26,11 @@ func (h *NodeHandler) Register(group *fuego.Server, authMiddleware *middleware.J
 
 	fuego.Post(nodesGroup, "/", h.CreateNode, authOption)
 	fuego.Post(nodesGroup, "/{uuid}", h.SaveNode, authOption)
+	fuego.Get(nodesGroup, "/favourites", h.GetFavourites, authOption) // exact route before /{uuid}
 	fuego.Get(nodesGroup, "/{uuid}/download", h.DownloadNode, authOption)
 	fuego.Get(nodesGroup, "/{uuid}", h.IndexDirectory, authOption)
 	fuego.Delete(nodesGroup, "/{uuid}", h.DeleteNode, authOption)
+	fuego.Put(nodesGroup, "/{uuid}/favourite", h.SetFavourite, authOption)
 }
 
 // --- CreateNode ---
@@ -190,6 +192,59 @@ func (h *NodeHandler) DeleteNode(c fuego.ContextNoBody) (*ApiResponse[DeleteNode
 		return NewErrorResponse[DeleteNodeResponse](err)
 	}
 	return NewApiResponse(&DeleteNodeResponse{}, "node deleted")
+}
+
+// --- SetFavourite ---
+
+type SetFavouriteRequest struct {
+	IsFavourite bool `json:"isFavourite"`
+}
+
+type SetFavouriteResponse struct{}
+
+func (h *NodeHandler) SetFavourite(c fuego.ContextWithBody[SetFavouriteRequest]) (*ApiResponse[SetFavouriteResponse], error) {
+	userIDStr := middleware.GetUserID(c.Context())
+	if userIDStr == "" {
+		return NewErrorResponse[SetFavouriteResponse](errors.New("unauthorized"))
+	}
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return NewErrorResponse[SetFavouriteResponse](errors.New("invalid user ID"))
+	}
+	nodeID, err := uuid.Parse(c.PathParam("uuid"))
+	if err != nil {
+		return NewErrorResponse[SetFavouriteResponse](err)
+	}
+	body, err := c.Body()
+	if err != nil {
+		return NewErrorResponse[SetFavouriteResponse](err)
+	}
+	if err := h.nodeService.SetFavourite(c.Context(), userID, nodeID, body.IsFavourite); err != nil {
+		return NewErrorResponse[SetFavouriteResponse](err)
+	}
+	return NewApiResponse(&SetFavouriteResponse{}, "favourite updated")
+}
+
+// --- GetFavourites ---
+
+type GetFavouritesResponse struct {
+	Nodes []*models.ServerNode `json:"nodes"`
+}
+
+func (h *NodeHandler) GetFavourites(c fuego.ContextNoBody) (*ApiResponse[GetFavouritesResponse], error) {
+	userIDStr := middleware.GetUserID(c.Context())
+	if userIDStr == "" {
+		return NewErrorResponse[GetFavouritesResponse](errors.New("unauthorized"))
+	}
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return NewErrorResponse[GetFavouritesResponse](errors.New("invalid user ID"))
+	}
+	nodes, err := h.nodeService.GetFavourites(c.Context(), userID)
+	if err != nil {
+		return NewErrorResponse[GetFavouritesResponse](err)
+	}
+	return NewApiResponse(&GetFavouritesResponse{Nodes: nodes}, "favourites retrieved")
 }
 
 // --- DownloadNode ---

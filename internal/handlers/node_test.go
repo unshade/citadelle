@@ -291,6 +291,119 @@ func TestDeleteNode(t *testing.T) {
 	})
 }
 
+func TestSetFavourite(t *testing.T) {
+	userID := uuid.New()
+	nodeID := uuid.New()
+
+	t.Run("sets favourite successfully", func(t *testing.T) {
+		mock := &testutil.MockNodeService{
+			SetFavouriteFunc: func(_ context.Context, uid uuid.UUID, nid uuid.UUID, fav bool) error {
+				assert.Equal(t, userID, uid)
+				assert.Equal(t, nodeID, nid)
+				assert.True(t, fav)
+				return nil
+			},
+		}
+		h := handlers.NewNodeHandler(mock)
+
+		ctx := fuego.NewMockContext[handlers.SetFavouriteRequest, any](handlers.SetFavouriteRequest{IsFavourite: true}, nil)
+		injectUserIDBody(ctx, userID)
+		ctx.PathParams["uuid"] = nodeID.String()
+
+		resp, err := h.SetFavourite(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+	})
+
+	t.Run("returns error when no user ID in context", func(t *testing.T) {
+		h := handlers.NewNodeHandler(&testutil.MockNodeService{})
+
+		ctx := fuego.NewMockContext[handlers.SetFavouriteRequest, any](handlers.SetFavouriteRequest{}, nil)
+		ctx.PathParams["uuid"] = nodeID.String()
+
+		_, err := h.SetFavourite(ctx)
+		require.Error(t, err)
+	})
+
+	t.Run("returns error for invalid node UUID", func(t *testing.T) {
+		h := handlers.NewNodeHandler(&testutil.MockNodeService{})
+
+		ctx := fuego.NewMockContext[handlers.SetFavouriteRequest, any](handlers.SetFavouriteRequest{}, nil)
+		injectUserIDBody(ctx, userID)
+		ctx.PathParams["uuid"] = "not-a-uuid"
+
+		_, err := h.SetFavourite(ctx)
+		require.Error(t, err)
+	})
+
+	t.Run("returns error when service fails", func(t *testing.T) {
+		mock := &testutil.MockNodeService{
+			SetFavouriteFunc: func(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ bool) error {
+				return errors.New("not found")
+			},
+		}
+		h := handlers.NewNodeHandler(mock)
+
+		ctx := fuego.NewMockContext[handlers.SetFavouriteRequest, any](handlers.SetFavouriteRequest{IsFavourite: true}, nil)
+		injectUserIDBody(ctx, userID)
+		ctx.PathParams["uuid"] = nodeID.String()
+
+		_, err := h.SetFavourite(ctx)
+		require.Error(t, err)
+	})
+}
+
+func TestGetFavourites(t *testing.T) {
+	userID := uuid.New()
+
+	t.Run("returns favourite nodes", func(t *testing.T) {
+		favNodes := []*models.ServerNode{
+			{Id: uuid.New(), IsFavourite: true},
+			{Id: uuid.New(), IsFavourite: true},
+		}
+		mock := &testutil.MockNodeService{
+			GetFavouritesFunc: func(_ context.Context, uid uuid.UUID) ([]*models.ServerNode, error) {
+				assert.Equal(t, userID, uid)
+				return favNodes, nil
+			},
+		}
+		h := handlers.NewNodeHandler(mock)
+
+		ctx := fuego.NewMockContextNoBody()
+		injectUserID(ctx, userID)
+
+		resp, err := h.GetFavourites(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Len(t, resp.Data.Nodes, 2)
+	})
+
+	t.Run("returns error when no user ID in context", func(t *testing.T) {
+		h := handlers.NewNodeHandler(&testutil.MockNodeService{})
+
+		ctx := fuego.NewMockContextNoBody()
+		// no user ID injected
+
+		_, err := h.GetFavourites(ctx)
+		require.Error(t, err)
+	})
+
+	t.Run("returns error when service fails", func(t *testing.T) {
+		mock := &testutil.MockNodeService{
+			GetFavouritesFunc: func(_ context.Context, _ uuid.UUID) ([]*models.ServerNode, error) {
+				return nil, errors.New("db error")
+			},
+		}
+		h := handlers.NewNodeHandler(mock)
+
+		ctx := fuego.NewMockContextNoBody()
+		injectUserID(ctx, userID)
+
+		_, err := h.GetFavourites(ctx)
+		require.Error(t, err)
+	})
+}
+
 func TestDownloadNode(t *testing.T) {
 	userID := uuid.New()
 	nodeID := uuid.New()

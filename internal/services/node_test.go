@@ -247,6 +247,76 @@ func TestDeleteNode_DeletesDBRecordsAndFiles_OnSuccess(t *testing.T) {
 	assert.ElementsMatch(t, expected, storageDeleted)
 }
 
+// --- SetFavourite ---
+
+func TestSetFavourite_UpdatesNode_OnSuccess(t *testing.T) {
+	nodeID := uuid.New()
+	userID := uuid.New()
+
+	nodes := &testutil.MockNodesRepo{
+		SetFavouriteFunc: func(_ context.Context, nid uuid.UUID, uid uuid.UUID, fav bool) error {
+			assert.Equal(t, nodeID, nid)
+			assert.Equal(t, userID, uid)
+			assert.True(t, fav)
+			return nil
+		},
+	}
+
+	svc := services.NewNodeService(nodes, &testutil.MockFileStorage{})
+	err := svc.SetFavourite(context.Background(), userID, nodeID, true)
+
+	require.NoError(t, err)
+}
+
+func TestSetFavourite_ReturnsError_WhenRepoFails(t *testing.T) {
+	nodes := &testutil.MockNodesRepo{
+		SetFavouriteFunc: func(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ bool) error {
+			return errors.New("node not found or not accessible")
+		},
+	}
+
+	svc := services.NewNodeService(nodes, &testutil.MockFileStorage{})
+	err := svc.SetFavourite(context.Background(), uuid.New(), uuid.New(), true)
+
+	require.Error(t, err)
+}
+
+// --- GetFavourites ---
+
+func TestGetFavourites_ReturnsFavouriteNodes_OnSuccess(t *testing.T) {
+	userID := uuid.New()
+	favNodes := []*models.ServerNode{
+		{Id: uuid.New(), IsFavourite: true},
+		{Id: uuid.New(), IsFavourite: true},
+	}
+
+	nodes := &testutil.MockNodesRepo{
+		GetFavouritesByUserIdFunc: func(_ context.Context, uid uuid.UUID) ([]*models.ServerNode, error) {
+			assert.Equal(t, userID, uid)
+			return favNodes, nil
+		},
+	}
+
+	svc := services.NewNodeService(nodes, &testutil.MockFileStorage{})
+	got, err := svc.GetFavourites(context.Background(), userID)
+
+	require.NoError(t, err)
+	assert.Equal(t, favNodes, got)
+}
+
+func TestGetFavourites_ReturnsError_WhenRepoFails(t *testing.T) {
+	nodes := &testutil.MockNodesRepo{
+		GetFavouritesByUserIdFunc: func(_ context.Context, _ uuid.UUID) ([]*models.ServerNode, error) {
+			return nil, errors.New("db error")
+		},
+	}
+
+	svc := services.NewNodeService(nodes, &testutil.MockFileStorage{})
+	_, err := svc.GetFavourites(context.Background(), uuid.New())
+
+	require.Error(t, err)
+}
+
 func TestDeleteNode_ReturnsError_WhenNodeNotFound(t *testing.T) {
 	nodes := &testutil.MockNodesRepo{
 		DeleteRecursiveByUserIdFunc: func(_ context.Context, _ uuid.UUID, _ uuid.UUID) ([]uuid.UUID, error) {
