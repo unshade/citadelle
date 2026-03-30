@@ -34,30 +34,24 @@ func TestCreateNode(t *testing.T) {
 	userID := uuid.New()
 	nodeID := uuid.New()
 
-	keyNonce := []byte("key-nonce")
-	encKey := []byte("enc-key")
 	contentNonce := []byte("content-nonce")
 	nameNonce := []byte("name-nonce")
 	encName := []byte("enc-name")
 
 	validBody := handlers.CreateNodeRequest{
-		B64KeyNonce:               base64.StdEncoding.EncodeToString(keyNonce),
-		B64EncryptedEncryptionKey: base64.StdEncoding.EncodeToString(encKey),
-		B64ContentNonce:           base64.StdEncoding.EncodeToString(contentNonce),
-		B64NameNonce:              base64.StdEncoding.EncodeToString(nameNonce),
-		B64EncryptedName:          base64.StdEncoding.EncodeToString(encName),
-		B64PathNonce:              "pathnonce==",
-		B64EncryptedPath:          "encpath==",
-		IsDirectory:               false,
-		Version:                   1,
+		B64ContentNonce:  base64.StdEncoding.EncodeToString(contentNonce),
+		B64NameNonce:     base64.StdEncoding.EncodeToString(nameNonce),
+		B64EncryptedName: base64.StdEncoding.EncodeToString(encName),
+		B64PathNonce:     "pathnonce==",
+		B64EncryptedPath: "encpath==",
+		IsDirectory:      false,
+		Version:          1,
 	}
 
 	t.Run("creates node and returns UUID", func(t *testing.T) {
 		mock := &testutil.MockNodeService{
 			CreateNodeFunc: func(_ context.Context, uid uuid.UUID, input services.CreateNodeInput) (uuid.UUID, error) {
 				assert.Equal(t, userID, uid)
-				assert.Equal(t, keyNonce, input.KeyNonce)
-				assert.Equal(t, encKey, input.EncryptedKey)
 				assert.Equal(t, contentNonce, input.ContentNonce)
 				assert.Equal(t, nameNonce, input.NameNonce)
 				assert.Equal(t, encName, input.EncryptedName)
@@ -86,15 +80,13 @@ func TestCreateNode(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("returns error for invalid base64 key", func(t *testing.T) {
+	t.Run("returns error for invalid base64 content nonce", func(t *testing.T) {
 		h := handlers.NewNodeHandler(&testutil.MockNodeService{})
 
 		body := handlers.CreateNodeRequest{
-			B64KeyNonce:               "!!!not-base64!!!",
-			B64EncryptedEncryptionKey: base64.StdEncoding.EncodeToString(encKey),
-			B64ContentNonce:           base64.StdEncoding.EncodeToString(contentNonce),
-			B64NameNonce:              base64.StdEncoding.EncodeToString(nameNonce),
-			B64EncryptedName:          base64.StdEncoding.EncodeToString(encName),
+			B64ContentNonce:  "!!!not-base64!!!",
+			B64NameNonce:     base64.StdEncoding.EncodeToString(nameNonce),
+			B64EncryptedName: base64.StdEncoding.EncodeToString(encName),
 		}
 		ctx := fuego.NewMockContext[handlers.CreateNodeRequest, any](body, nil)
 		injectUserIDBody(ctx, userID)
