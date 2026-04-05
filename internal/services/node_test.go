@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/unshade/citadelle/internal/models"
+	"github.com/unshade/citadelle/internal/pagination"
 	"github.com/unshade/citadelle/internal/services"
 	"github.com/unshade/citadelle/internal/testutil"
 )
@@ -176,18 +177,20 @@ func TestIndexDirectory_ReturnsRootNodes_WhenUUIDIsRoot(t *testing.T) {
 	rootNodes := []*models.ServerNode{{Id: uuid.New()}, {Id: uuid.New()}}
 
 	nodes := &testutil.MockNodesRepo{
-		GetRootNodesByUserIdFunc: func(_ context.Context, uid uuid.UUID) ([]*models.ServerNode, error) {
+		GetRootNodesByUserIdFunc: func(_ context.Context, uid uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error) {
 			assert.Equal(t, userID, uid)
-			return rootNodes, nil
+			return rootNodes, pagination.Result{Page: p.Page, PerPage: p.PerPage, Total: 2}, nil
 		},
 	}
 
 	svc := services.NewNodeService(nodes, &testutil.MockFileStorage{})
+	p := pagination.Params{Page: 1, PerPage: 50}
 
 	for _, rootParam := range []string{"root", "", "00000000-0000-0000-0000-000000000000"} {
-		got, err := svc.IndexDirectory(context.Background(), userID, rootParam)
+		got, result, err := svc.IndexDirectory(context.Background(), userID, rootParam, p)
 		require.NoError(t, err, "param: %q", rootParam)
 		assert.Equal(t, rootNodes, got, "param: %q", rootParam)
+		assert.Equal(t, uint64(2), result.Total, "param: %q", rootParam)
 	}
 }
 
@@ -197,18 +200,20 @@ func TestIndexDirectory_ReturnsChildren_WhenParentUUIDGiven(t *testing.T) {
 	children := []*models.ServerNode{{Id: uuid.New()}}
 
 	nodes := &testutil.MockNodesRepo{
-		GetChildrensByUserIdFunc: func(_ context.Context, pid uuid.UUID, uid uuid.UUID) ([]*models.ServerNode, error) {
+		GetChildrensByUserIdFunc: func(_ context.Context, pid uuid.UUID, uid uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error) {
 			assert.Equal(t, parentID, pid)
 			assert.Equal(t, userID, uid)
-			return children, nil
+			return children, pagination.Result{Page: p.Page, PerPage: p.PerPage, Total: 1}, nil
 		},
 	}
 
 	svc := services.NewNodeService(nodes, &testutil.MockFileStorage{})
-	got, err := svc.IndexDirectory(context.Background(), userID, parentID.String())
+	p := pagination.Params{Page: 1, PerPage: 50}
+	got, result, err := svc.IndexDirectory(context.Background(), userID, parentID.String(), p)
 
 	require.NoError(t, err)
 	assert.Equal(t, children, got)
+	assert.Equal(t, uint64(1), result.Total)
 }
 
 // --- DeleteNode ---
@@ -288,28 +293,30 @@ func TestGetFavourites_ReturnsFavouriteNodes_OnSuccess(t *testing.T) {
 	}
 
 	nodes := &testutil.MockNodesRepo{
-		GetFavouritesByUserIdFunc: func(_ context.Context, uid uuid.UUID) ([]*models.ServerNode, error) {
+		GetFavouritesByUserIdFunc: func(_ context.Context, uid uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error) {
 			assert.Equal(t, userID, uid)
-			return favNodes, nil
+			return favNodes, pagination.Result{Page: p.Page, PerPage: p.PerPage, Total: 2}, nil
 		},
 	}
 
 	svc := services.NewNodeService(nodes, &testutil.MockFileStorage{})
-	got, err := svc.GetFavourites(context.Background(), userID)
+	p := pagination.Params{Page: 1, PerPage: 50}
+	got, result, err := svc.GetFavourites(context.Background(), userID, p)
 
 	require.NoError(t, err)
 	assert.Equal(t, favNodes, got)
+	assert.Equal(t, uint64(2), result.Total)
 }
 
 func TestGetFavourites_ReturnsError_WhenRepoFails(t *testing.T) {
 	nodes := &testutil.MockNodesRepo{
-		GetFavouritesByUserIdFunc: func(_ context.Context, _ uuid.UUID) ([]*models.ServerNode, error) {
-			return nil, errors.New("db error")
+		GetFavouritesByUserIdFunc: func(_ context.Context, _ uuid.UUID, _ pagination.Params) ([]*models.ServerNode, pagination.Result, error) {
+			return nil, pagination.Result{}, errors.New("db error")
 		},
 	}
 
 	svc := services.NewNodeService(nodes, &testutil.MockFileStorage{})
-	_, err := svc.GetFavourites(context.Background(), uuid.New())
+	_, _, err := svc.GetFavourites(context.Background(), uuid.New(), pagination.Params{Page: 1, PerPage: 50})
 
 	require.Error(t, err)
 }

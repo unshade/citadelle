@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/unshade/citadelle/internal/models"
+	"github.com/unshade/citadelle/internal/pagination"
 	"github.com/unshade/citadelle/internal/services"
 )
 
@@ -34,10 +35,10 @@ type MockNodesRepo struct {
 	GetByIdAndUserIdFunc        func(ctx context.Context, nodeID uuid.UUID, userID uuid.UUID) (*models.ServerNode, error)
 	DeleteByIdAndUserIdFunc     func(ctx context.Context, nodeID uuid.UUID, userID uuid.UUID) error
 	DeleteRecursiveByUserIdFunc func(ctx context.Context, nodeID uuid.UUID, userID uuid.UUID) ([]uuid.UUID, error)
-	GetChildrensByUserIdFunc    func(ctx context.Context, parentID uuid.UUID, userID uuid.UUID) ([]*models.ServerNode, error)
-	GetRootNodesByUserIdFunc    func(ctx context.Context, userID uuid.UUID) ([]*models.ServerNode, error)
+	GetChildrensByUserIdFunc    func(ctx context.Context, parentID uuid.UUID, userID uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error)
+	GetRootNodesByUserIdFunc    func(ctx context.Context, userID uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error)
 	SetFavouriteFunc            func(ctx context.Context, nodeID uuid.UUID, userID uuid.UUID, isFavourite bool) error
-	GetFavouritesByUserIdFunc   func(ctx context.Context, userID uuid.UUID) ([]*models.ServerNode, error)
+	GetFavouritesByUserIdFunc   func(ctx context.Context, userID uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error)
 }
 
 func (m *MockNodesRepo) Create(ctx context.Context, node models.ServerNode) error {
@@ -56,20 +57,20 @@ func (m *MockNodesRepo) DeleteRecursiveByUserId(ctx context.Context, nodeID uuid
 	return m.DeleteRecursiveByUserIdFunc(ctx, nodeID, userID)
 }
 
-func (m *MockNodesRepo) GetChildrensByUserId(ctx context.Context, parentID uuid.UUID, userID uuid.UUID) ([]*models.ServerNode, error) {
-	return m.GetChildrensByUserIdFunc(ctx, parentID, userID)
+func (m *MockNodesRepo) GetChildrensByUserId(ctx context.Context, parentID uuid.UUID, userID uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error) {
+	return m.GetChildrensByUserIdFunc(ctx, parentID, userID, p)
 }
 
-func (m *MockNodesRepo) GetRootNodesByUserId(ctx context.Context, userID uuid.UUID) ([]*models.ServerNode, error) {
-	return m.GetRootNodesByUserIdFunc(ctx, userID)
+func (m *MockNodesRepo) GetRootNodesByUserId(ctx context.Context, userID uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error) {
+	return m.GetRootNodesByUserIdFunc(ctx, userID, p)
 }
 
 func (m *MockNodesRepo) SetFavourite(ctx context.Context, nodeID uuid.UUID, userID uuid.UUID, isFavourite bool) error {
 	return m.SetFavouriteFunc(ctx, nodeID, userID, isFavourite)
 }
 
-func (m *MockNodesRepo) GetFavouritesByUserId(ctx context.Context, userID uuid.UUID) ([]*models.ServerNode, error) {
-	return m.GetFavouritesByUserIdFunc(ctx, userID)
+func (m *MockNodesRepo) GetFavouritesByUserId(ctx context.Context, userID uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error) {
+	return m.GetFavouritesByUserIdFunc(ctx, userID, p)
 }
 
 // --- AuthService mock ---
@@ -108,10 +109,10 @@ type MockNodeService struct {
 	CreateNodeFunc     func(ctx context.Context, userID uuid.UUID, input services.CreateNodeInput) (uuid.UUID, error)
 	SaveNodeFunc       func(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID, file io.Reader, size int64) error
 	DownloadNodeFunc   func(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID) (*models.ServerNode, []byte, error)
-	IndexDirectoryFunc func(ctx context.Context, userID uuid.UUID, uuidParam string) ([]*models.ServerNode, error)
+	IndexDirectoryFunc func(ctx context.Context, userID uuid.UUID, uuidParam string, p pagination.Params) ([]*models.ServerNode, pagination.Result, error)
 	DeleteNodeFunc     func(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID) error
 	SetFavouriteFunc   func(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID, isFavourite bool) error
-	GetFavouritesFunc  func(ctx context.Context, userID uuid.UUID) ([]*models.ServerNode, error)
+	GetFavouritesFunc  func(ctx context.Context, userID uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error)
 }
 
 func (m *MockNodeService) CreateNode(ctx context.Context, userID uuid.UUID, input services.CreateNodeInput) (uuid.UUID, error) {
@@ -126,8 +127,8 @@ func (m *MockNodeService) DeleteNode(ctx context.Context, userID uuid.UUID, node
 	return m.DeleteNodeFunc(ctx, userID, nodeID)
 }
 
-func (m *MockNodeService) IndexDirectory(ctx context.Context, userID uuid.UUID, uuidParam string) ([]*models.ServerNode, error) {
-	return m.IndexDirectoryFunc(ctx, userID, uuidParam)
+func (m *MockNodeService) IndexDirectory(ctx context.Context, userID uuid.UUID, uuidParam string, p pagination.Params) ([]*models.ServerNode, pagination.Result, error) {
+	return m.IndexDirectoryFunc(ctx, userID, uuidParam, p)
 }
 
 func (m *MockNodeService) DownloadNode(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID) (*models.ServerNode, []byte, error) {
@@ -138,8 +139,8 @@ func (m *MockNodeService) SetFavourite(ctx context.Context, userID uuid.UUID, no
 	return m.SetFavouriteFunc(ctx, userID, nodeID, isFavourite)
 }
 
-func (m *MockNodeService) GetFavourites(ctx context.Context, userID uuid.UUID) ([]*models.ServerNode, error) {
-	return m.GetFavouritesFunc(ctx, userID)
+func (m *MockNodeService) GetFavourites(ctx context.Context, userID uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error) {
+	return m.GetFavouritesFunc(ctx, userID, p)
 }
 
 // --- FileStorage mock ---

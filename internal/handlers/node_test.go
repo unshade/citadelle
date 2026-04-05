@@ -17,6 +17,7 @@ import (
 	"github.com/unshade/citadelle/internal/handlers"
 	"github.com/unshade/citadelle/internal/middleware"
 	"github.com/unshade/citadelle/internal/models"
+	"github.com/unshade/citadelle/internal/pagination"
 	"github.com/unshade/citadelle/internal/services"
 	"github.com/unshade/citadelle/internal/testutil"
 )
@@ -175,10 +176,10 @@ func TestIndexDirectory(t *testing.T) {
 
 	t.Run("returns nodes for valid directory", func(t *testing.T) {
 		mock := &testutil.MockNodeService{
-			IndexDirectoryFunc: func(_ context.Context, uid uuid.UUID, param string) ([]*models.ServerNode, error) {
+			IndexDirectoryFunc: func(_ context.Context, uid uuid.UUID, param string, p pagination.Params) ([]*models.ServerNode, pagination.Result, error) {
 				assert.Equal(t, userID, uid)
 				assert.Equal(t, nodeID.String(), param)
-				return nodes, nil
+				return nodes, pagination.Result{Page: p.Page, PerPage: p.PerPage, Total: 1}, nil
 			},
 		}
 		h := handlers.NewNodeHandler(mock)
@@ -191,7 +192,8 @@ func TestIndexDirectory(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		assert.Len(t, resp.Data.Nodes, 1)
+		assert.Len(t, resp.Data, 1)
+		assert.Equal(t, uint64(1), resp.Total)
 	})
 
 	t.Run("returns error when no user ID in context", func(t *testing.T) {
@@ -206,8 +208,8 @@ func TestIndexDirectory(t *testing.T) {
 
 	t.Run("returns error when service fails", func(t *testing.T) {
 		mock := &testutil.MockNodeService{
-			IndexDirectoryFunc: func(_ context.Context, _ uuid.UUID, _ string) ([]*models.ServerNode, error) {
-				return nil, errors.New("not found")
+			IndexDirectoryFunc: func(_ context.Context, _ uuid.UUID, _ string, _ pagination.Params) ([]*models.ServerNode, pagination.Result, error) {
+				return nil, pagination.Result{}, errors.New("not found")
 			},
 		}
 		h := handlers.NewNodeHandler(mock)
@@ -354,9 +356,9 @@ func TestGetFavourites(t *testing.T) {
 			{Id: uuid.New(), IsFavourite: true},
 		}
 		mock := &testutil.MockNodeService{
-			GetFavouritesFunc: func(_ context.Context, uid uuid.UUID) ([]*models.ServerNode, error) {
+			GetFavouritesFunc: func(_ context.Context, uid uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error) {
 				assert.Equal(t, userID, uid)
-				return favNodes, nil
+				return favNodes, pagination.Result{Page: p.Page, PerPage: p.PerPage, Total: 2}, nil
 			},
 		}
 		h := handlers.NewNodeHandler(mock)
@@ -367,7 +369,8 @@ func TestGetFavourites(t *testing.T) {
 		resp, err := h.GetFavourites(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		assert.Len(t, resp.Data.Nodes, 2)
+		assert.Len(t, resp.Data, 2)
+		assert.Equal(t, uint64(2), resp.Total)
 	})
 
 	t.Run("returns error when no user ID in context", func(t *testing.T) {
@@ -382,8 +385,8 @@ func TestGetFavourites(t *testing.T) {
 
 	t.Run("returns error when service fails", func(t *testing.T) {
 		mock := &testutil.MockNodeService{
-			GetFavouritesFunc: func(_ context.Context, _ uuid.UUID) ([]*models.ServerNode, error) {
-				return nil, errors.New("db error")
+			GetFavouritesFunc: func(_ context.Context, _ uuid.UUID, _ pagination.Params) ([]*models.ServerNode, pagination.Result, error) {
+				return nil, pagination.Result{}, errors.New("db error")
 			},
 		}
 		h := handlers.NewNodeHandler(mock)

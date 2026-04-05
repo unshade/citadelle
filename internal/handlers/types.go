@@ -1,6 +1,9 @@
 package handlers
 
-import "github.com/go-fuego/fuego"
+import (
+	"github.com/go-fuego/fuego"
+	"github.com/unshade/citadelle/internal/pagination"
+)
 
 type ApiResponse[T any] struct {
 	Data    *T     `json:"data"`
@@ -23,31 +26,20 @@ type PaginatedApiResponse[T any] struct {
 	Total   uint64 `json:"total"`
 }
 
-func NewPaginatedApiResponse[T any](
-	data []T,
-	message string,
-) *PaginatedApiResponse[T] {
+func NewPaginatedApiResponse[T any](data []T, p pagination.Result, message string) *PaginatedApiResponse[T] {
 	return &PaginatedApiResponse[T]{
 		Data:    data,
 		Message: message,
+		Page:    p.Page,
+		PerPage: p.PerPage,
+		Total:   p.Total,
 	}
 }
 
-func PaginationParamsFromRequest[T any](c fuego.Context[T, any]) PaginationParams {
-	page := c.QueryParamInt("page")
-	perPage := c.QueryParamInt("perPage")
-	return PaginationParams{
-		Page:    uint64(page),
-		PerPage: uint64(perPage),
-	}
-}
-
-type PaginationParams struct {
-	Page    uint64
-	PerPage uint64
-}
-
-type Pagination struct {
-	PaginationParams
-	Total uint64
+// PaginationParamsFromRequest extracts page/perPage query params and normalizes them.
+func PaginationParamsFromRequest[T any](c fuego.Context[T, any]) pagination.Params {
+	return pagination.Params{
+		Page:    uint64(c.QueryParamInt("page")),
+		PerPage: uint64(c.QueryParamInt("perPage")),
+	}.Normalize()
 }

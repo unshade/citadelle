@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/unshade/citadelle/internal/models"
+	"github.com/unshade/citadelle/internal/pagination"
 	"github.com/unshade/citadelle/internal/repositories"
 	"github.com/unshade/citadelle/internal/storage"
 )
@@ -17,10 +18,10 @@ type NodeService interface {
 	CreateNode(ctx context.Context, userID uuid.UUID, input CreateNodeInput) (uuid.UUID, error)
 	SaveNode(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID, file io.Reader, size int64) error
 	DownloadNode(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID) (*models.ServerNode, []byte, error)
-	IndexDirectory(ctx context.Context, userID uuid.UUID, uuidParam string) ([]*models.ServerNode, error)
+	IndexDirectory(ctx context.Context, userID uuid.UUID, uuidParam string, p pagination.Params) ([]*models.ServerNode, pagination.Result, error)
 	DeleteNode(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID) error
 	SetFavourite(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID, isFavourite bool) error
-	GetFavourites(ctx context.Context, userID uuid.UUID) ([]*models.ServerNode, error)
+	GetFavourites(ctx context.Context, userID uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error)
 }
 
 type CreateNodeInput struct {
@@ -87,23 +88,23 @@ func (s *nodeService) DownloadNode(ctx context.Context, userID uuid.UUID, nodeID
 	return node, data, nil
 }
 
-func (s *nodeService) IndexDirectory(ctx context.Context, userID uuid.UUID, uuidParam string) ([]*models.ServerNode, error) {
+func (s *nodeService) IndexDirectory(ctx context.Context, userID uuid.UUID, uuidParam string, p pagination.Params) ([]*models.ServerNode, pagination.Result, error) {
 	if uuidParam == "root" || uuidParam == "" || uuidParam == "00000000-0000-0000-0000-000000000000" {
-		return s.nodes.GetRootNodesByUserId(ctx, userID)
+		return s.nodes.GetRootNodesByUserId(ctx, userID, p)
 	}
 	parentUUID, err := uuid.Parse(uuidParam)
 	if err != nil {
-		return nil, err
+		return nil, pagination.Result{}, err
 	}
-	return s.nodes.GetChildrensByUserId(ctx, parentUUID, userID)
+	return s.nodes.GetChildrensByUserId(ctx, parentUUID, userID, p)
 }
 
 func (s *nodeService) SetFavourite(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID, isFavourite bool) error {
 	return s.nodes.SetFavourite(ctx, nodeID, userID, isFavourite)
 }
 
-func (s *nodeService) GetFavourites(ctx context.Context, userID uuid.UUID) ([]*models.ServerNode, error) {
-	return s.nodes.GetFavouritesByUserId(ctx, userID)
+func (s *nodeService) GetFavourites(ctx context.Context, userID uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error) {
+	return s.nodes.GetFavouritesByUserId(ctx, userID, p)
 }
 
 func (s *nodeService) DeleteNode(ctx context.Context, userID uuid.UUID, nodeID uuid.UUID) error {
