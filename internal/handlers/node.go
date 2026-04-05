@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/unshade/citadelle/internal/middleware"
 	"github.com/unshade/citadelle/internal/models"
+	"github.com/unshade/citadelle/internal/pagination"
 	"github.com/unshade/citadelle/internal/services"
 )
 
@@ -137,25 +138,26 @@ func (h *NodeHandler) SaveNode(c fuego.ContextNoBody) (*ApiResponse[SaveNodeResp
 
 // --- IndexDirectory ---
 
-type IndexDirectoryResponse struct {
-	Nodes []*models.ServerNode `json:"nodes"`
-}
-
-func (h *NodeHandler) IndexDirectory(c fuego.ContextNoBody) (*ApiResponse[IndexDirectoryResponse], error) {
+func (h *NodeHandler) IndexDirectory(c fuego.ContextNoBody) (*PaginatedApiResponse[*models.ServerNode], error) {
 	userIDStr := middleware.GetUserID(c.Context())
 	if userIDStr == "" {
-		return NewErrorResponse[IndexDirectoryResponse](errors.New("unauthorized"))
+		return nil, errors.New("unauthorized")
 	}
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
-		return NewErrorResponse[IndexDirectoryResponse](errors.New("invalid user ID"))
+		return nil, errors.New("invalid user ID")
 	}
 
-	nodes, err := h.nodeService.IndexDirectory(c.Context(), userID, c.PathParam("uuid"))
+	p := pagination.Params{
+		Page:    uint64(c.QueryParamInt("page")),
+		PerPage: uint64(c.QueryParamInt("perPage")),
+	}.Normalize()
+
+	nodes, result, err := h.nodeService.IndexDirectory(c.Context(), userID, c.PathParam("uuid"), p)
 	if err != nil {
-		return NewErrorResponse[IndexDirectoryResponse](err)
+		return nil, err
 	}
-	return NewApiResponse(&IndexDirectoryResponse{Nodes: nodes}, "files retrieved")
+	return NewPaginatedApiResponse(nodes, result, "files retrieved"), nil
 }
 
 // --- DeleteNode ---
@@ -215,24 +217,26 @@ func (h *NodeHandler) SetFavourite(c fuego.ContextWithBody[SetFavouriteRequest])
 
 // --- GetFavourites ---
 
-type GetFavouritesResponse struct {
-	Nodes []*models.ServerNode `json:"nodes"`
-}
-
-func (h *NodeHandler) GetFavourites(c fuego.ContextNoBody) (*ApiResponse[GetFavouritesResponse], error) {
+func (h *NodeHandler) GetFavourites(c fuego.ContextNoBody) (*PaginatedApiResponse[*models.ServerNode], error) {
 	userIDStr := middleware.GetUserID(c.Context())
 	if userIDStr == "" {
-		return NewErrorResponse[GetFavouritesResponse](errors.New("unauthorized"))
+		return nil, errors.New("unauthorized")
 	}
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
-		return NewErrorResponse[GetFavouritesResponse](errors.New("invalid user ID"))
+		return nil, errors.New("invalid user ID")
 	}
-	nodes, err := h.nodeService.GetFavourites(c.Context(), userID)
+
+	p := pagination.Params{
+		Page:    uint64(c.QueryParamInt("page")),
+		PerPage: uint64(c.QueryParamInt("perPage")),
+	}.Normalize()
+
+	nodes, result, err := h.nodeService.GetFavourites(c.Context(), userID, p)
 	if err != nil {
-		return NewErrorResponse[GetFavouritesResponse](err)
+		return nil, err
 	}
-	return NewApiResponse(&GetFavouritesResponse{Nodes: nodes}, "favourites retrieved")
+	return NewPaginatedApiResponse(nodes, result, "favourites retrieved"), nil
 }
 
 // --- DownloadNode ---

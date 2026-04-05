@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/unshade/citadelle/internal/models"
+	"github.com/unshade/citadelle/internal/pagination"
 	"gorm.io/gorm"
 )
 
@@ -14,10 +15,10 @@ type ServerNodesRepo interface {
 	GetByIdAndUserId(ctx context.Context, nodeUUID uuid.UUID, userId uuid.UUID) (*models.ServerNode, error)
 	DeleteByIdAndUserId(ctx context.Context, nodeUUID uuid.UUID, userId uuid.UUID) error
 	DeleteRecursiveByUserId(ctx context.Context, nodeUUID uuid.UUID, userId uuid.UUID) ([]uuid.UUID, error)
-	GetChildrensByUserId(ctx context.Context, parentUUID uuid.UUID, userId uuid.UUID) ([]*models.ServerNode, error)
-	GetRootNodesByUserId(ctx context.Context, userId uuid.UUID) ([]*models.ServerNode, error)
+	GetChildrensByUserId(ctx context.Context, parentUUID uuid.UUID, userId uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error)
+	GetRootNodesByUserId(ctx context.Context, userId uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error)
 	SetFavourite(ctx context.Context, nodeUUID uuid.UUID, userId uuid.UUID, isFavourite bool) error
-	GetFavouritesByUserId(ctx context.Context, userId uuid.UUID) ([]*models.ServerNode, error)
+	GetFavouritesByUserId(ctx context.Context, userId uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error)
 }
 
 type ServerNodes struct {
@@ -73,16 +74,21 @@ func (r *ServerNodes) DeleteRecursiveByUserId(ctx context.Context, nodeUUID uuid
 	return uuids, nil
 }
 
+// getDescendantsByUserId is an internal helper that fetches ALL descendants without
+// pagination — it is used exclusively by DeleteRecursiveByUserId which must process
+// every child node regardless of count.
 func (r *ServerNodes) getDescendantsByUserId(ctx context.Context, parentUUID uuid.UUID, userId uuid.UUID) ([]*models.ServerNode, error) {
 	var allDescendants []*models.ServerNode
-	var toProcess = []uuid.UUID{parentUUID}
+	toProcess := []uuid.UUID{parentUUID}
 
 	for len(toProcess) > 0 {
 		currentParent := toProcess[0]
 		toProcess = toProcess[1:]
 
-		children, err := r.GetChildrensByUserId(ctx, currentParent, userId)
-		if err != nil {
+		var children []*models.ServerNode
+		if err := r.db.WithContext(ctx).
+			Where("parent_id = ? AND proprietary_id = ?", currentParent, userId).
+			Find(&children).Error; err != nil {
 			return nil, err
 		}
 
@@ -97,12 +103,46 @@ func (r *ServerNodes) getDescendantsByUserId(ctx context.Context, parentUUID uui
 	return allDescendants, nil
 }
 
-func (r *ServerNodes) GetChildrensByUserId(ctx context.Context, parentUUID uuid.UUID, userId uuid.UUID) ([]*models.ServerNode, error) {
-	return gorm.G[*models.ServerNode](r.db).Where("parent_id = ? AND proprietary_id = ?", parentUUID, userId).Find(ctx)
+func (r *ServerNodes) GetChildrensByUserId(ctx context.Context, parentUUID uuid.UUID, userId uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error) {
+	p = p.Normalize()
+
+	var total int64
+	if err := r.db.WithContext(ctx).Model(&models.ServerNode{}).
+		Where("parent_id = ? AND proprietary_id = ?", parentUUID, userId).
+		Count(&total).Error; err != nil {
+		return nil, pagination.Result{}, err
+	}
+
+	var nodes []*models.ServerNode
+	if err := r.db.WithContext(ctx).
+		Where("parent_id = ? AND proprietary_id = ?", parentUUID, userId).
+		Offset(p.Offset()).Limit(p.Limit()).
+		Find(&nodes).Error; err != nil {
+		return nil, pagination.Result{}, err
+	}
+
+	return nodes, pagination.Result{Page: p.Page, PerPage: p.PerPage, Total: uint64(total)}, nil
 }
 
-func (r *ServerNodes) GetRootNodesByUserId(ctx context.Context, userId uuid.UUID) ([]*models.ServerNode, error) {
-	return gorm.G[*models.ServerNode](r.db).Where("parent_id IS NULL AND proprietary_id = ?", userId).Find(ctx)
+func (r *ServerNodes) GetRootNodesByUserId(ctx context.Context, userId uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error) {
+	p = p.Normalize()
+
+	var total int64
+	if err := r.db.WithContext(ctx).Model(&models.ServerNode{}).
+		Where("parent_id IS NULL AND proprietary_id = ?", userId).
+		Count(&total).Error; err != nil {
+		return nil, pagination.Result{}, err
+	}
+
+	var nodes []*models.ServerNode
+	if err := r.db.WithContext(ctx).
+		Where("parent_id IS NULL AND proprietary_id = ?", userId).
+		Offset(p.Offset()).Limit(p.Limit()).
+		Find(&nodes).Error; err != nil {
+		return nil, pagination.Result{}, err
+	}
+
+	return nodes, pagination.Result{Page: p.Page, PerPage: p.PerPage, Total: uint64(total)}, nil
 }
 
 func (r *ServerNodes) SetFavourite(ctx context.Context, nodeUUID uuid.UUID, userId uuid.UUID, isFavourite bool) error {
@@ -119,6 +159,23 @@ func (r *ServerNodes) SetFavourite(ctx context.Context, nodeUUID uuid.UUID, user
 	return nil
 }
 
-func (r *ServerNodes) GetFavouritesByUserId(ctx context.Context, userId uuid.UUID) ([]*models.ServerNode, error) {
-	return gorm.G[*models.ServerNode](r.db).Where("is_favourite = true AND proprietary_id = ?", userId).Find(ctx)
+func (r *ServerNodes) GetFavouritesByUserId(ctx context.Context, userId uuid.UUID, p pagination.Params) ([]*models.ServerNode, pagination.Result, error) {
+	p = p.Normalize()
+
+	var total int64
+	if err := r.db.WithContext(ctx).Model(&models.ServerNode{}).
+		Where("is_favourite = true AND proprietary_id = ?", userId).
+		Count(&total).Error; err != nil {
+		return nil, pagination.Result{}, err
+	}
+
+	var nodes []*models.ServerNode
+	if err := r.db.WithContext(ctx).
+		Where("is_favourite = true AND proprietary_id = ?", userId).
+		Offset(p.Offset()).Limit(p.Limit()).
+		Find(&nodes).Error; err != nil {
+		return nil, pagination.Result{}, err
+	}
+
+	return nodes, pagination.Result{Page: p.Page, PerPage: p.PerPage, Total: uint64(total)}, nil
 }
